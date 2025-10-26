@@ -1,0 +1,215 @@
+{
+  "formName": "productSearchForm",
+  "formTitle": "产品搜索表单",
+  "formDescription": "支持API搜索的产品选择和信息回填",
+  "fields": [
+    {
+      "fieldName": "productSelector",
+      "fieldLabel": "产品选择",
+      "fieldType": "select",
+      "required": true,
+      "placeholder": "请输入产品名称进行搜索",
+      "componentConfig": {
+        "clearable": true,
+        "filterable": true,
+        "remote": true,
+        "remoteMethod": "searchProducts"
+      },
+      "dataSource": {
+        "type": "api",
+        "url": "http://localhost:3005/api/products/search",
+        "method": "GET",
+        "params": {
+          "name": "{searchKeyword}"
+        },
+        "responseMapping": {
+          "value": "partNumber",
+          "label": "name",
+          "customData": {
+            "name": "name",
+            "partNumber": "partNumber",
+            "spec": "spec"
+          }
+        },
+        "dataPath": "data"
+      },
+      "events": [
+        {
+          "type": "change",
+          "actions": [
+            {
+              "type": "setValue",
+              "targetField": "productName",
+              "sourceExpression": "selectedOption.name"
+            },
+            {
+              "type": "setValue",
+              "targetField": "partNumber",
+              "sourceExpression": "selectedOption.partNumber"
+            },
+            {
+              "type": "setValue",
+              "targetField": "spec",
+              "sourceExpression": "selectedOption.spec"
+            },
+            {
+              "type": "setValue",
+              "targetField": "unitPrice",
+              "value": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "fieldName": "productName",
+      "fieldLabel": "产品名称",
+      "fieldType": "string",
+      "placeholder": "从产品选择器自动填充",
+      "componentConfig": {
+        "clearable": false
+      }
+    },
+    {
+      "fieldName": "partNumber",
+      "fieldLabel": "零件编号",
+      "fieldType": "string",
+      "placeholder": "从产品选择器自动填充",
+      "componentConfig": {
+        "clearable": false
+      }
+    },
+    {
+      "fieldName": "spec",
+      "fieldLabel": "规格",
+      "fieldType": "textarea",
+      "placeholder": "从产品选择器自动填充",
+      "componentConfig": {
+        "rows": 2,
+        "clearable": false
+      }
+    },
+    {
+      "fieldName": "unitPrice",
+      "fieldLabel": "产品单价",
+      "fieldType": "float",
+      "required": true,
+      "placeholder": "请输入产品单价",
+      "componentConfig": {
+        "min": 0,
+        "max": 999999,
+        "precision": 2,
+        "step": 0.01,
+        "clearable": true
+      },
+      "validation": {
+        "rules": [
+          {
+            "type": "required",
+            "message": "产品单价不能为空"
+          },
+          {
+            "type": "number",
+            "min": 0.01,
+            "message": "产品单价必须大于0"
+          }
+        ]
+      },
+      "events": [
+        {
+          "type": "blur",
+          "actions": [
+            {
+              "type": "setValue",
+              "targetField": "adjustedPrice",
+              "sourceExpression": "formData.partNumber && formData.partNumber.startsWith('BT') ? formData.unitPrice * 10 : formData.unitPrice",
+              "condition": "formData.unitPrice && formData.partNumber"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "fieldName": "adjustedPrice",
+      "fieldLabel": "调整后价格",
+      "fieldType": "float",
+      "placeholder": "根据零件编号自动计算",
+      "description": "当零件编号以BT开头时，价格自动乘以10",
+      "componentConfig": {
+        "precision": 2,
+        "clearable": false
+      }
+    },
+    {
+      "fieldName": "quantity",
+      "fieldLabel": "数量",
+      "fieldType": "integer",
+      "defaultValue": 1,
+      "required": true,
+      "placeholder": "请输入数量",
+      "componentConfig": {
+        "min": 1,
+        "max": 9999,
+        "step": 1
+      },
+      "validation": {
+        "rules": [
+          {
+            "type": "required",
+            "message": "数量不能为空"
+          },
+          {
+            "type": "number",
+            "min": 1,
+            "message": "数量必须大于0"
+          }
+        ]
+      },
+      "events": [
+        {
+          "type": "change",
+          "actions": [
+            {
+              "type": "setValue",
+              "targetField": "totalAmount",
+              "sourceExpression": "(formData.adjustedPrice || formData.unitPrice || 0) * formData.quantity",
+              "condition": "formData.quantity && (formData.adjustedPrice || formData.unitPrice)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "fieldName": "totalAmount",
+      "fieldLabel": "总金额",
+      "fieldType": "float",
+      "placeholder": "自动计算",
+      "description": "根据调整后价格和数量自动计算",
+      "componentConfig": {
+        "precision": 2,
+        "clearable": false
+      }
+    },
+    {
+      "fieldName": "remarks",
+      "fieldLabel": "备注",
+      "fieldType": "textarea",
+      "placeholder": "请输入备注信息（可选）",
+      "componentConfig": {
+        "rows": 3,
+        "maxLength": 200,
+        "clearable": true
+      }
+    }
+  ],
+  "layout": {
+    "columns": 2,
+    "labelWidth": "120px",
+    "labelPosition": "right",
+    "size": "default"
+  },
+  "validation": {
+    "validateOnRuleChange": false,
+    "hideRequiredAsterisk": false
+  }
+}

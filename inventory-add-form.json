@@ -1,0 +1,162 @@
+{
+  "formName": "inventoryAddForm",
+  "formTitle": "新增库存",
+  "formDescription": "添加新的库存记录",
+  "fields": [
+    {
+      "fieldName": "productId",
+      "fieldLabel": "产品选择",
+      "fieldType": "select",
+      "required": true,
+      "placeholder": "请选择产品",
+      "dataSource": {
+        "type": "api",
+        "url": "http://localhost:3005/api/products/search",
+        "method": "GET",
+        "params": {
+          "name": "{searchKeyword}"
+        },
+        "dataPath": "data",
+        "responseMapping": {
+          "value": "partNumber",
+          "label": "name",
+          "customData": {
+            "partNumber": "partNumber",
+            "spec": "spec"
+          }
+        },
+        "cache": true,
+        "cacheTime": 300000
+      },
+      "events": [
+        {
+          "type": "change",
+          "actions": [
+            {
+              "type": "setValue",
+              "targetField": "partNumber",
+              "sourceExpression": "selectedOption.partNumber"
+            },
+            {
+              "type": "setValue",
+              "targetField": "unit",
+              "value": "kg",
+              "condition": "selectedOption.partNumber && selectedOption.partNumber.startsWith('BT')"
+            },
+            {
+              "type": "setValue",
+              "targetField": "unit",
+              "value": "件",
+              "condition": "selectedOption.partNumber && !selectedOption.partNumber.startsWith('BT')"
+            }
+          ]
+        }
+      ],
+      "componentConfig": {
+        "clearable": true,
+        "filterable": true,
+        "remote": true,
+        "remoteMethod": "searchProducts",
+        "placeholder": "请输入产品名称搜索"
+      },
+      "validation": {
+        "rules": [
+          {
+            "type": "required",
+            "message": "请选择产品"
+          }
+        ]
+      }
+    },
+    {
+      "fieldName": "partNumber",
+      "fieldLabel": "图号",
+      "fieldType": "string",
+      "required": true,
+      "disabled": true,
+      "placeholder": "产品选择后自动填充",
+      "description": "根据选择的产品自动填充图号",
+      "events": [],
+      "componentConfig": {
+        "clearable": false,
+        "readonly": true
+      },
+      "validation": {
+        "rules": [
+          {
+            "type": "required",
+            "message": "图号不能为空"
+          }
+        ]
+      }
+    },
+    {
+      "fieldName": "unit",
+      "fieldLabel": "单位",
+      "fieldType": "select",
+      "required": true,
+      "placeholder": "请选择单位",
+      "defaultValue": "件",
+      "dataSource": {
+        "type": "static",
+        "options": [
+          {
+            "value": "件",
+            "label": "件"
+          },
+          {
+            "value": "kg",
+            "label": "千克(kg)"
+          }
+        ]
+      },
+      "componentConfig": {
+        "clearable": true,
+        "placeholder": "请选择单位"
+      },
+      "validation": {
+        "rules": [
+          {
+            "type": "required",
+            "message": "请选择单位"
+          }
+        ]
+      }
+    },
+    {
+      "fieldName": "quantity",
+      "fieldLabel": "数量",
+      "fieldType": "integer",
+      "required": true,
+      "placeholder": "请输入数量",
+      "defaultValue": 1,
+      "componentConfig": {
+        "min": 1,
+        "max": 10,
+        "step": 1,
+        "precision": 0,
+        "controlsPosition": "right"
+      },
+      "validation": {
+        "rules": [
+          {
+            "type": "required",
+            "message": "请输入数量"
+          },
+          {
+            "type": "number",
+            "min": 1,
+            "max": 10,
+            "message": "数量必须在1-10之间"
+          }
+        ]
+      }
+    }
+  ],
+  "layout": {
+    "columns": 2,
+    "labelWidth": "120px",
+    "labelPosition": "right",
+    "size": "default"
+  }
+}
