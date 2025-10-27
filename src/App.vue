@@ -12,6 +12,7 @@
             @select="handleMenuSelect"
           >
             <el-menu-item index="test">表单测试</el-menu-item>
+            <el-menu-item index="generator">JSON生成器</el-menu-item>
             <el-menu-item index="simulator">接口模拟器</el-menu-item>
             <el-menu-item index="docs">数据格式文档</el-menu-item>
           </el-menu>
@@ -26,6 +27,7 @@
            v-model="formData"
            @submit="handleFormSubmit"
          />
+         <JsonGenerator v-else-if="activeMenu === 'generator'" />
          <ApiSimulator v-else-if="activeMenu === 'simulator'" />
          <div v-else>文档页面（待开发）</div>
       </el-main>
@@ -36,6 +38,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import DynamicForm from '../components/DynamicForm.vue'
+import JsonGenerator from './views/JsonGenerator.vue'
 import ApiSimulator from './views/ApiSimulator.vue'
 import type { FormConfig, FormData } from '../types/form-config'
 
