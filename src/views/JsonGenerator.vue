@@ -69,12 +69,27 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="数据源" width="180">
+          <el-table-column label="数据源类型" width="140">
             <template #default="{ row, $index }">
               <el-select 
-                v-if="needsDataSource(row.fieldType)"
+                v-model="row.dataSourceType"
+                placeholder="选择类型"
+                @change="onDataSourceTypeChange($index)"
+                style="width: 100%"
+              >
+                <el-option label="手动填写" value="manual" />
+                <el-option label="接口获取" value="api" />
+                <el-option label="表单内部传递" value="internal" />
+              </el-select>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="数据源" width="200">
+            <template #default="{ row, $index }">
+              <el-select 
+                v-if="row.dataSourceType === 'api'"
                 v-model="row.dataSourceId"
-                placeholder="选择数据源"
+                placeholder="选择API接口"
                 @change="onDataSourceChange($index)"
                 style="width: 100%"
               >
@@ -85,13 +100,45 @@
                   :value="option.value"
                 />
               </el-select>
+              <div v-else-if="row.dataSourceType === 'internal'" style="display: flex; flex-direction: column; gap: 4px;">
+                <el-select 
+                  v-model="row.internalFieldId"
+                  placeholder="选择字段"
+                  @change="onInternalFieldChange($index)"
+                  style="width: 100%"
+                  size="small"
+                >
+                  <el-option
+                    v-for="field in getAvailableInternalFields($index)"
+                    :key="field.fieldName"
+                    :label="field.fieldLabel"
+                    :value="field.fieldName"
+                  />
+                </el-select>
+                <el-select 
+                  v-if="row.internalFieldId"
+                  v-model="row.internalFieldProperty"
+                  placeholder="选择属性"
+                  @change="onDataSourceChange($index)"
+                  style="width: 100%"
+                  size="small"
+                >
+                  <el-option
+                    v-for="property in getAvailableFieldProperties(row.internalFieldId)"
+                    :key="property.value"
+                    :label="property.label"
+                    :value="property.value"
+                  />
+                </el-select>
+              </div>
+              <span v-else-if="row.dataSourceType === 'manual'" class="text-muted">手动填写</span>
               <span v-else class="text-muted">-</span>
             </template>
           </el-table-column>
 
           <el-table-column label="可用字段" width="200">
             <template #default="{ row }">
-              <div v-if="needsDataSource(row.fieldType) && row.dataSourceId" class="available-fields">
+              <div v-if="needsDataSource() && row.dataSourceId" class="available-fields">
                 <el-tag 
                   v-for="field in getAvailableFields(row.dataSourceId)" 
                   :key="field.key"
@@ -140,14 +187,19 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { FieldConfig, DataSource } from '../../types/form-config'
-import { getDataSourceOptions, getDataSourceById, type DataSourceOption } from '../data/data-sources'
+import type { FieldConfig } from '../../types/form-config'
+import { getDataSourceOptions, getDataSourceById } from '../data/data-sources'
 
 // 扩展FieldConfig接口以支持表格编辑
 interface EditableFieldConfig extends FieldConfig {
   placeholder?: string;
   defaultValue?: any;
   dataSourceId?: string; // 添加数据源ID字段
+  componentConfig?: any; // 添加组件配置字段
+  dataSourceType?: 'manual' | 'api' | 'internal'; // 添加数据源类型字段，包含手动填写选项
+  internalFieldId?: string; // 添加内部字段ID字段
+  internalFieldProperty?: string; // 添加内部字段属性字段
+  events?: any[]; // 添加事件配置字段
 }
 
 // 字段类型选项
@@ -177,7 +229,8 @@ const addField = () => {
     required: false,
     disabled: false,
     placeholder: '',
-    defaultValue: ''
+    defaultValue: '',
+    dataSourceType: 'manual' // 新增字段默认选择手动填写
   })
 }
 
@@ -201,30 +254,170 @@ const validateFieldName = (index: number) => {
   }
 }
 
-// 判断是否需要数据源
-const needsDataSource = (fieldType: string) => {
-  return ['select', 'radio', 'checkbox'].includes(fieldType)
+// 判断是否需要数据源（现在所有字段类型都支持数据源）
+const needsDataSource = () => {
+  return true // 所有字段类型都支持数据源选择
+}
+
+// 数据源类型变化处理
+const onDataSourceTypeChange = (index: number) => {
+  const field = fields.value[index]
+  // 清空之前的数据源配置
+  field.dataSourceId = undefined
+  field.internalFieldId = undefined
+  field.internalFieldProperty = undefined
+  field.dataSource = undefined
+  field.componentConfig = undefined
+  field.events = undefined
+}
+
+// 获取可用的内部字段
+const getAvailableInternalFields = (currentIndex: number) => {
+  return fields.value
+    .filter((_field, index) => index !== currentIndex) // 排除当前字段
+    .map(field => ({
+      fieldName: field.fieldName,
+      fieldLabel: field.fieldLabel,
+      fieldType: field.fieldType
+    }))
+}
+
+// 内部字段选择变化处理
+const onInternalFieldChange = (index: number) => {
+  const field = fields.value[index]
+  // 清空字段属性选择
+  field.internalFieldProperty = undefined
+  field.events = undefined
+}
+
+// 获取字段的可用属性
+const getAvailableFieldProperties = (fieldName: string) => {
+  const sourceField = fields.value.find(f => f.fieldName === fieldName)
+  if (!sourceField) return []
+  
+  // 基础属性
+  const properties = [
+    { value: fieldName, label: `字段值 (${fieldName})` }
+  ]
+  
+  // 如果源字段有数据源配置，添加数据源相关属性
+  if (sourceField.dataSource && sourceField.dataSource.responseMapping) {
+    const mapping = sourceField.dataSource.responseMapping
+    if (mapping.customData) {
+      Object.keys(mapping.customData).forEach(key => {
+        properties.push({
+          value: key,
+          label: `${key} (来自数据源)`
+        })
+      })
+    }
+  }
+  
+  return properties
 }
 
 // 数据源变化处理
 const onDataSourceChange = (index: number) => {
   const field = fields.value[index]
-  if (field.dataSourceId) {
+  
+  if (field.dataSourceType === 'api' && field.dataSourceId) {
+    // API数据源处理
     const dataSource = getDataSourceById(field.dataSourceId)
     if (dataSource) {
-      // 根据选择的数据源创建DataSource对象
-      field.dataSource = {
+      // 根据选择的数据源创建完整的DataSource对象
+      const dataSourceConfig: any = {
         type: 'api',
         url: dataSource.url,
-        method: 'GET',
-        responseMapping: {
-          value: dataSource.fields[0]?.key || 'id',
-          label: dataSource.fields[1]?.key || 'name'
+        method: dataSource.method || 'GET',
+        responseMapping: dataSource.responseMapping
+      }
+      
+      // 添加params参数（如果存在）
+      if (dataSource.params) {
+        dataSourceConfig.params = dataSource.params
+      }
+      
+      // 添加dataPath（如果存在）
+      if (dataSource.dataPath) {
+        dataSourceConfig.dataPath = dataSource.dataPath
+      }
+      
+      field.dataSource = dataSourceConfig
+      
+      // 如果是搜索类型的接口，自动添加搜索相关的componentConfig
+      if (dataSource.isSearchable) {
+        // 确保字段类型为select才添加下拉框相关配置
+        if (field.fieldType === 'select') {
+          if (!field.componentConfig) {
+            field.componentConfig = {}
+          }
+          field.componentConfig.clearable = true
+          field.componentConfig.filterable = true
+          field.componentConfig.remote = true
+          field.componentConfig.remoteMethod = 'searchProducts'
+        } else {
+          // 如果字段类型不是select，但配置了API数据源，自动修改字段类型为select
+          field.fieldType = 'select'
+          if (!field.componentConfig) {
+            field.componentConfig = {}
+          }
+          field.componentConfig.clearable = true
+          field.componentConfig.filterable = true
+          field.componentConfig.remote = true
+          field.componentConfig.remoteMethod = 'searchProducts'
         }
       }
     }
-  } else {
+  } else if (field.dataSourceType === 'internal' && field.internalFieldId && field.internalFieldProperty) {
+    // 内部字段传递处理
+    const sourceField = fields.value.find(f => f.fieldName === field.internalFieldId)
+    if (sourceField) {
+      // 将事件配置添加到源字段上，而不是目标字段
+      if (!sourceField.events) {
+        sourceField.events = []
+      }
+      
+      // 检查是否已经存在相同的事件配置，避免重复
+      const existingEventIndex = sourceField.events.findIndex((event: any) => 
+        event.type === 'change' && 
+        event.actions?.some((action: any) => action.targetField === field.fieldName)
+      )
+      
+      const newAction = {
+        type: 'setValue',
+        targetField: field.fieldName,
+        sourceExpression: `selectedOption.${field.internalFieldProperty}`
+      }
+      
+      if (existingEventIndex >= 0) {
+        // 如果已存在change事件，添加新的action
+        const changeEvent = sourceField.events[existingEventIndex]
+        if (!changeEvent.actions.some((action: any) => action.targetField === field.fieldName)) {
+          changeEvent.actions.push(newAction)
+        }
+      } else {
+        // 创建新的change事件
+        sourceField.events.push({
+          type: 'change',
+          actions: [newAction]
+        })
+      }
+      
+      // 清空目标字段的事件配置和API相关配置
+      field.events = undefined
+      field.dataSource = undefined
+      field.componentConfig = undefined
+    }
+  } else if (field.dataSourceType === 'manual') {
+    // 手动填写模式：清空所有数据源相关配置
     field.dataSource = undefined
+    field.componentConfig = undefined
+    field.events = undefined
+  } else {
+    // 清空所有配置
+    field.dataSource = undefined
+    field.componentConfig = undefined
+    field.events = undefined
   }
 }
 
@@ -249,15 +442,22 @@ const formattedJson = computed(() => {
       if (field.required) result.required = field.required
       if (field.disabled) result.disabled = field.disabled
       
-      // 将placeholder和defaultValue放入componentConfig
+      // 合并componentConfig
       const componentConfig: any = {}
       if (field.placeholder) componentConfig.placeholder = field.placeholder
       if (field.defaultValue) componentConfig.defaultValue = field.defaultValue
+      
+      // 合并来自数据源的componentConfig
+      if (field.componentConfig) {
+        Object.assign(componentConfig, field.componentConfig)
+      }
+      
       if (Object.keys(componentConfig).length > 0) {
         result.componentConfig = componentConfig
       }
       
       if (field.dataSource) result.dataSource = field.dataSource
+      if (field.events && field.events.length > 0) result.events = field.events
       
       return result
     })

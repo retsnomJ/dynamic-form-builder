@@ -4,6 +4,15 @@ export interface DataSourceOption {
   name: string;
   description: string;
   url: string;
+  method?: string;
+  params?: Record<string, any>;
+  responseMapping: {
+    value: string;
+    label: string;
+    customData?: Record<string, string>;
+  };
+  dataPath?: string;
+  isSearchable?: boolean; // 是否为搜索类型的接口
   fields: Array<{
     key: string;
     label: string;
@@ -17,7 +26,22 @@ export const predefinedDataSources: DataSourceOption[] = [
     id: 'products-search',
     name: '产品搜索接口',
     description: '根据名称搜索产品信息',
-    url: 'http://localhost:3000/api/products/search',
+    url: 'http://localhost:3005/api/products/search',
+    method: 'GET',
+    params: {
+      name: '{searchKeyword}'
+    },
+    responseMapping: {
+      value: 'partNumber',
+      label: 'name',
+      customData: {
+        name: 'name',
+        partNumber: 'partNumber',
+        spec: 'spec'
+      }
+    },
+    dataPath: 'data',
+    isSearchable: true,
     fields: [
       { key: 'name', label: '产品名称', type: 'string' },
       { key: 'partNumber', label: '零件号', type: 'string' },
@@ -29,6 +53,12 @@ export const predefinedDataSources: DataSourceOption[] = [
     name: '用户列表接口',
     description: '获取用户列表',
     url: 'http://localhost:3000/api/users',
+    method: 'GET',
+    responseMapping: {
+      value: 'id',
+      label: 'name'
+    },
+    dataPath: 'data',
     fields: [
       { key: 'id', label: '用户ID', type: 'number' },
       { key: 'name', label: '用户名', type: 'string' },
@@ -41,6 +71,12 @@ export const predefinedDataSources: DataSourceOption[] = [
     name: '分类列表接口',
     description: '获取产品分类列表',
     url: 'http://localhost:3000/api/categories',
+    method: 'GET',
+    responseMapping: {
+      value: 'id',
+      label: 'name'
+    },
+    dataPath: 'data',
     fields: [
       { key: 'id', label: '分类ID', type: 'number' },
       { key: 'name', label: '分类名称', type: 'string' },
@@ -53,6 +89,12 @@ export const predefinedDataSources: DataSourceOption[] = [
     name: '部门列表接口',
     description: '获取部门列表',
     url: 'http://localhost:3000/api/departments',
+    method: 'GET',
+    responseMapping: {
+      value: 'id',
+      label: 'name'
+    },
+    dataPath: 'data',
     fields: [
       { key: 'id', label: '部门ID', type: 'number' },
       { key: 'name', label: '部门名称', type: 'string' },
