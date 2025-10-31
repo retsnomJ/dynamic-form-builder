@@ -230,7 +230,12 @@ const addField = () => {
     disabled: false,
     placeholder: '',
     defaultValue: '',
-    dataSourceType: 'manual' // 新增字段默认选择手动填写
+    dataSourceType: 'manual', // 新增字段默认选择手动填写
+    componentConfig: {}, // 预留组件配置
+    events: [], // 预留事件配置
+    validation: { // 预留验证配置
+      rules: []
+    }
   })
 }
 
@@ -439,8 +444,9 @@ const formattedJson = computed(() => {
         fieldType: field.fieldType
       }
       
-      if (field.required) result.required = field.required
-      if (field.disabled) result.disabled = field.disabled
+      // 始终包含required和disabled，即使为false
+      result.required = field.required || false
+      result.disabled = field.disabled || false
       
       // 合并componentConfig
       const componentConfig: any = {}
@@ -452,12 +458,14 @@ const formattedJson = computed(() => {
         Object.assign(componentConfig, field.componentConfig)
       }
       
-      if (Object.keys(componentConfig).length > 0) {
-        result.componentConfig = componentConfig
-      }
+      // 始终包含componentConfig，即使为空对象
+      result.componentConfig = componentConfig
       
       if (field.dataSource) result.dataSource = field.dataSource
-      if (field.events && field.events.length > 0) result.events = field.events
+      
+      // 始终包含events和validation，即使为空
+      result.events = field.events || []
+      result.validation = field.validation || { rules: [] }
       
       return result
     })
