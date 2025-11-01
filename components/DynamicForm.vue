@@ -155,20 +155,22 @@ const getDefaultValue = (field: FieldConfig): any => {
 const handleFieldChange = (fieldName: string, value: any, selectedOption?: OptionItem) => {
   console.log('字段变更:', { fieldName, value, selectedOption })
   
-  // 防止递归更新：检查值是否真的发生了变化
-  if (formData.value[fieldName] === value) {
-    console.log('值未变化，跳过处理')
-    return
-  }
-  
-  // 处理字段联动事件（在更新formData之前）
+  // 获取当前字段配置
   const field = props.config.fields.find(f => f.fieldName === fieldName)
+  
+  // 记录旧值用于调试
+  const oldValue = formData.value[fieldName]
+  console.log(`值比较: oldValue=${oldValue} (${typeof oldValue}), newValue=${value} (${typeof value})`)
+  
+  // 先更新表单数据
+  formData.value[fieldName] = value
+  
+  // 处理字段联动事件（使用更新后的formData）
+  // 注意：总是处理联动事件，因为即使当前字段值相同，其他依赖字段可能已经变化
   if (field?.events) {
+    console.log(`处理字段 ${fieldName} 的联动事件`)
     processFieldEvents(field, value, selectedOption)
   }
-  
-  // 更新表单数据
-  formData.value[fieldName] = value
   
   // 向外发送事件
   emit('fieldChange', fieldName, value, selectedOption)
@@ -178,11 +180,17 @@ const handleFieldChange = (fieldName: string, value: any, selectedOption?: Optio
 const processFieldEvents = (field: FieldConfig, value: any, selectedOption?: OptionItem, eventType: string = 'change') => {
   if (!field.events) return
 
+  console.log(`处理字段 ${field.fieldName} 的 ${eventType} 事件`)
+
   field.events.forEach(event => {
     if (event.type === eventType) {
+      console.log('匹配到事件:', event)
       event.actions.forEach(action => {
+        console.log('执行动作:', action)
+        
         // 检查动作级别的条件
         if (action.condition && !evaluateCondition(action.condition, selectedOption)) {
+          console.log('条件不满足，跳过动作')
           return
         }
         
@@ -191,7 +199,9 @@ const processFieldEvents = (field: FieldConfig, value: any, selectedOption?: Opt
           
           if (action.sourceExpression) {
             // 使用表达式计算值
+            console.log('计算表达式:', action.sourceExpression)
             targetValue = evaluateExpression(action.sourceExpression, selectedOption)
+            console.log('表达式计算结果:', targetValue)
           } else if (action.value !== undefined) {
             // 使用直接值
             targetValue = action.value
@@ -199,8 +209,12 @@ const processFieldEvents = (field: FieldConfig, value: any, selectedOption?: Opt
           
           if (targetValue !== undefined && action.targetField) {
             // 防止递归更新：检查目标字段的值是否真的需要改变
-            if (formData.value[action.targetField] !== targetValue) {
+            const oldTargetValue = formData.value[action.targetField]
+            if (oldTargetValue !== targetValue) {
+              console.log(`设置字段 ${action.targetField} 的值从 ${oldTargetValue} 改为 ${targetValue}`)
               formData.value[action.targetField] = targetValue
+            } else {
+              console.log(`字段 ${action.targetField} 的值未变化，跳过设置`)
             }
           }
         }

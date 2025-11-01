@@ -41,8 +41,7 @@
       :max="componentConfig.max"
       :precision="fieldConfig.fieldType === 'float' ? (componentConfig.precision || 2) : 0"
       class="!w-full"
-      @update:model-value="handleInput"
-      @change="handleChange"
+      @update:model-value="handleNumberChange"
       @focus="handleFocus"
       @blur="handleBlur"
     />
@@ -312,8 +311,16 @@ const handleRemoteSearch = (query: string) => {
   }, 300) // 300ms 防抖延迟
 }
 
+// 处理数字输入框变更（合并input和change逻辑）
+const handleNumberChange = (value: any) => {
+  console.log(`[DynamicField] handleNumberChange - 字段: ${props.fieldConfig.fieldName}, 值: ${value}`)
+  emit('update:modelValue', value)
+  emit('fieldChange', props.fieldConfig.fieldName, value)
+}
+
 // 事件处理
 const handleChange = (value: any) => {
+  console.log(`[DynamicField] handleChange - 字段: ${props.fieldConfig.fieldName}, 值: ${value}`)
   emit('update:modelValue', value)
   emit('fieldChange', props.fieldConfig.fieldName, value)
 }
@@ -338,7 +345,14 @@ const handleBlur = () => {
 
 // 处理输入事件
 const handleInput = (value: any) => {
+  console.log(`[DynamicField] handleInput - 字段: ${props.fieldConfig.fieldName}, 值: ${value}`)
   emit('update:modelValue', value)
+  
+  // 对于数字类型字段，input事件也需要触发fieldChange来支持联动
+  if (props.fieldConfig.fieldType === 'integer' || props.fieldConfig.fieldType === 'float') {
+    console.log(`[DynamicField] 数字类型字段触发fieldChange事件`)
+    emit('fieldChange', props.fieldConfig.fieldName, value)
+  }
 }
 
 // 监听字段配置变化，重新加载选项

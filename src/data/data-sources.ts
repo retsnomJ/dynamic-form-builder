@@ -59,6 +59,7 @@ export const predefinedDataSources: DataSourceOption[] = [
       label: 'name'
     },
     dataPath: 'data',
+    isSearchable: true,
     fields: [
       { key: 'id', label: '用户ID', type: 'number' },
       { key: 'name', label: '用户名', type: 'string' },
@@ -77,6 +78,7 @@ export const predefinedDataSources: DataSourceOption[] = [
       label: 'name'
     },
     dataPath: 'data',
+    isSearchable: true,
     fields: [
       { key: 'id', label: '分类ID', type: 'number' },
       { key: 'name', label: '分类名称', type: 'string' },
@@ -95,11 +97,29 @@ export const predefinedDataSources: DataSourceOption[] = [
       label: 'name'
     },
     dataPath: 'data',
+    isSearchable: true,
     fields: [
       { key: 'id', label: '部门ID', type: 'number' },
       { key: 'name', label: '部门名称', type: 'string' },
       { key: 'code', label: '部门代码', type: 'string' },
       { key: 'manager', label: '部门经理', type: 'string' }
+    ]
+  },
+  {
+    id: 'customer-types',
+    name: '客户类型选项接口',
+    description: '获取客户类型选项列表',
+    url: 'http://localhost:3005/api/options/customer-types',
+    method: 'GET',
+    responseMapping: {
+      value: 'value',
+      label: 'label'
+    },
+    dataPath: 'data',
+    isSearchable: true,
+    fields: [
+      { key: 'value', label: '客户类型', type: 'string' },
+      { key: 'label', label: '类型值', type: 'string' }
     ]
   }
 ];

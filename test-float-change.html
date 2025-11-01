@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Float字段Change事件测试</title>
+  <script type="module" src="/src/main.ts"></script>
+</head>
+<body>
+  <div id="app">
+    <div style="padding: 20px;">
+      <h1>Float字段Change事件测试</h1>
+      <p>测试场景：当客户类型为VIP时，折后单价 = 单价 * 0.9，否则折后单价 = 单价</p>
+      
+      <dynamic-form 
+        :config="formConfig" 
+        v-model="formData"
+        @field-change="onFieldChange"
+      />
+      
+      <div style="margin-top: 20px; padding: 15px; background: #f5f7fa; border-radius: 4px;">
+        <h3>表单数据：</h3>
+        <pre>{{ JSON.stringify(formData, null, 2) }}</pre>
+      </div>
+      
+      <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 4px;">
+        <h3>事件日志：</h3>
+        <div v-for="(log, index) in eventLogs" :key="index" style="margin: 5px 0; font-family: monospace;">
+          {{ log }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createApp, ref } from 'vue'
+    import ElementPlus from 'element-plus'
+    import 'element-plus/dist/index.css'
+    import DynamicForm from './components/DynamicForm.vue'
+
+    const formConfig = {
+      "formName": "generatedForm", 
+      "formTitle": "生成的表单", 
+      "fields": [ 
+        { 
+          "fieldName": "customtype", 
+          "fieldLabel": "客户类型", 
+          "fieldType": "select", 
+          "required": false, 
+          "disabled": false, 
+          "componentConfig": { 
+            "clearable": true, 
+            "filterable": true, 
+            "remote": false
+          }, 
+          "dataSource": { 
+            "type": "static", 
+            "options": [
+              { "value": "normal", "label": "普通客户" },
+              { "value": "vip", "label": "VIP客户" }
+            ]
+          }, 
+          "events": [], 
+          "validation": { 
+            "rules": [] 
+          } 
+        }, 
+        { 
+          "fieldName": "price", 
+          "fieldLabel": "单价", 
+          "fieldType": "float", 
+          "required": false, 
+          "disabled": false, 
+          "componentConfig": {}, 
+          "events": [ 
+            { 
+              "type": "change", 
+              "actions": [ 
+                { 
+                  "type": "setValue", 
+                  "targetField": "discountprice", 
+                  "sourceExpression": "(formData.customtype === 'vip') ? formData.price * 0.9 : formData.price" 
+                } 
+              ] 
+            } 
+          ], 
+          "validation": { 
+            "rules": [] 
+          } 
+        }, 
+        { 
+          "fieldName": "discountprice", 
+          "fieldLabel": "折后单价", 
+          "fieldType": "float", 
+          "required": false, 
+          "disabled": false, 
+          "componentConfig": {}, 
+          "validation": { 
+            "rules": [] 
+          } 
+        } 
+      ] 
+    }
+
+    const app = createApp({
+      components: {
+        DynamicForm
+      },
+      setup() {
+        const formData = ref({})
+        const eventLogs = ref([])
+
+        const onFieldChange = (fieldName, value, selectedOption) => {
+          const timestamp = new Date().toLocaleTimeString()
+          eventLogs.value.push(`[${timestamp}] 字段变更: ${fieldName} = ${value}`)
+          console.log('字段变更事件:', { fieldName, value, selectedOption })
+        }
+
+        return {
+          formConfig,
+          formData,
+          eventLogs,
+          onFieldChange
+        }
+      }
+    })
+
+    app.use(ElementPlus)
+    app.mount('#app')
+  </script>
+</body>
+</html>

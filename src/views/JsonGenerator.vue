@@ -204,7 +204,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import type { FieldConfig, FieldEvent } from '../../types/form-config'
 import { getDataSourceOptions, getDataSourceById } from '../data/data-sources'
 import EventConfigHelper from '../components/EventConfigHelper.vue'
@@ -236,37 +236,81 @@ const fieldTypes = [
 // 数据源选项
 const dataSourceOptions = getDataSourceOptions()
 
-// 字段配置数据 - 预填充测试数据
-const fields = ref<EditableFieldConfig[]>([
-  {
-    fieldName: "product",
-    fieldLabel: "产品",
-    fieldType: "string",
-    required: false,
-    disabled: false,
-    componentConfig: {},
-    events: [],
-    validation: {
-      rules: []
+// localStorage键名
+const STORAGE_KEY = 'json-generator-fields'
+
+// 从localStorage加载数据
+const loadFromStorage = (): EditableFieldConfig[] => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      const parsedData = JSON.parse(stored)
+      // 验证数据结构
+      if (Array.isArray(parsedData) && parsedData.length > 0) {
+        return parsedData
+      }
     }
-  },
-  {
-    fieldName: "price",
-    fieldLabel: "单价",
-    fieldType: "string",
-    required: false,
-    disabled: false,
-    componentConfig: {},
-    events: [],
-    validation: {
-      rules: []
-    }
+  } catch (error) {
+    console.warn('从localStorage加载数据失败:', error)
   }
-])
+  
+  // 返回默认数据
+  return [
+    {
+      fieldName: "product",
+      fieldLabel: "产品",
+      fieldType: "string",
+      required: false,
+      disabled: false,
+      componentConfig: {},
+      events: [],
+      validation: {
+        rules: []
+      }
+    },
+    {
+      fieldName: "price",
+      fieldLabel: "单价",
+      fieldType: "string",
+      required: false,
+      disabled: false,
+      componentConfig: {},
+      events: [],
+      validation: {
+        rules: []
+      }
+    }
+  ]
+}
+
+// 保存到localStorage
+const saveToStorage = (data: EditableFieldConfig[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  } catch (error) {
+    console.warn('保存数据到localStorage失败:', error)
+  }
+}
+
+// 字段配置数据 - 从localStorage加载或使用默认数据
+const fields = ref<EditableFieldConfig[]>(loadFromStorage())
 
 // 事件配置相关
 const eventConfigVisible = ref(false)
 const currentFieldIndex = ref(-1)
+
+// 监听fields变化，自动保存到localStorage
+watch(fields, (newFields) => {
+  saveToStorage(newFields)
+}, { deep: true })
+
+// 组件挂载时确保数据已加载
+onMounted(() => {
+  // 如果fields为空，确保至少有一个示例字段
+  if (fields.value.length === 0) {
+    addField()
+  }
+})
 
 // 添加字段
 const addField = () => {

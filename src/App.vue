@@ -22,14 +22,14 @@
       <!-- 主内容区域 -->
       <el-main class="app-main">
         <DynamicForm 
-           v-if="activeMenu === 'test'"
+           v-show="activeMenu === 'test'"
            :config="formConfig"
            v-model="formData"
            @submit="handleFormSubmit"
          />
-         <JsonGenerator v-else-if="activeMenu === 'generator'" />
-         <ApiSimulator v-else-if="activeMenu === 'simulator'" />
-         <div v-else>文档页面（待开发）</div>
+         <JsonGenerator v-show="activeMenu === 'generator'" />
+         <ApiSimulator v-show="activeMenu === 'simulator'" />
+         <div v-show="activeMenu === 'docs'">文档页面（待开发）</div>
       </el-main>
     </el-container>
   </div>

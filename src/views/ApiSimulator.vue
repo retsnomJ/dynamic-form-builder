@@ -71,15 +71,72 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import DynamicForm from '../../components/DynamicForm.vue'
 import type { FormConfig, FormData } from '../../types/form-config'
 
-// 响应式数据
-const jsonInput = ref('')
+// localStorage键名
+const STORAGE_KEY_JSON = 'api-simulator-json-input'
+const STORAGE_KEY_FORM_DATA = 'api-simulator-form-data'
+
+// 从localStorage加载数据
+const loadJsonFromStorage = (): string => {
+  try {
+    return localStorage.getItem(STORAGE_KEY_JSON) || ''
+  } catch (error) {
+    console.warn('从localStorage加载JSON输入失败:', error)
+    return ''
+  }
+}
+
+const loadFormDataFromStorage = (): FormData => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_FORM_DATA)
+    return stored ? JSON.parse(stored) : {}
+  } catch (error) {
+    console.warn('从localStorage加载表单数据失败:', error)
+    return {}
+  }
+}
+
+// 保存到localStorage
+const saveJsonToStorage = (json: string) => {
+  try {
+    localStorage.setItem(STORAGE_KEY_JSON, json)
+  } catch (error) {
+    console.warn('保存JSON输入到localStorage失败:', error)
+  }
+}
+
+const saveFormDataToStorage = (data: FormData) => {
+  try {
+    localStorage.setItem(STORAGE_KEY_FORM_DATA, JSON.stringify(data))
+  } catch (error) {
+    console.warn('保存表单数据到localStorage失败:', error)
+  }
+}
+
+// 响应式数据 - 从localStorage加载
+const jsonInput = ref(loadJsonFromStorage())
 const formConfig = ref<FormConfig | null>(null)
-const formData = ref<FormData>({})
+const formData = ref<FormData>(loadFormDataFromStorage())
 const errorMessage = ref('')
+
+// 监听数据变化，自动保存到localStorage
+watch(jsonInput, (newJson) => {
+  saveJsonToStorage(newJson)
+})
+
+watch(formData, (newFormData) => {
+  saveFormDataToStorage(newFormData)
+}, { deep: true })
+
+// 组件挂载时，如果有保存的JSON输入，尝试自动生成表单
+onMounted(() => {
+  if (jsonInput.value.trim()) {
+    generateForm()
+  }
+})
 
 // 生成表单
 const generateForm = () => {
