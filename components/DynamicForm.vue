@@ -181,7 +181,7 @@ const processFieldEvents = (field: FieldConfig, value: any, selectedOption?: Opt
   field.events.forEach(event => {
     if (event.type === eventType) {
       event.actions.forEach(action => {
-        // 检查条件
+        // 检查动作级别的条件
         if (action.condition && !evaluateCondition(action.condition, selectedOption)) {
           return
         }

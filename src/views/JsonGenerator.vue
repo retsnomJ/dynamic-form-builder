@@ -198,7 +198,7 @@
       v-model:visible="eventConfigVisible"
       :fields="fields"
       :target-field-name="currentFieldIndex >= 0 ? fields[currentFieldIndex]?.fieldName : undefined"
-      @apply-event="applyEventToField"
+      @apply="applyEventToField"
     />
   </div>
 </template>
@@ -299,7 +299,7 @@ const openEventConfig = (index: number) => {
 }
 
 // 应用事件到字段
-const applyEventToField = (fieldName: string, event: FieldEvent) => {
+const applyEventToField = (event: FieldEvent, fieldName: string) => {
   console.group('📝 应用事件到字段')
   console.log('🎯 目标字段名:', fieldName)
   console.log('⚙️ 事件配置:', event)

@@ -169,28 +169,33 @@ ${fieldsInfo}
 请生成符合以下格式的事件配置JSON：
 {
   "type": "事件类型",
-  "condition": "条件表达式(可选)",
   "actions": [
     {
       "type": "动作类型",
       "targetField": "目标字段",
       "sourceExpression": "值或表达式",
-      "value": "直接值(可选)"
+      "value": "直接值(可选)",
+      "condition": "动作执行条件(可选)"
     }
   ]
 }
 
+🎯 重要：推荐使用三元表达式而不是单独的condition字段！
+
+✅ 推荐方式（三元表达式）：
+"sourceExpression": "(formData.product && formData.product.startsWith('bt')) ? formData.price * 10 : formData.price"
+
+❌ 不推荐方式（单独condition）：
+"condition": "formData.product && formData.product.startsWith('bt')",
+"sourceExpression": "formData.price * 10"
+
 动作类型包括：setValue, show, hide, enable, disable, validate, callApi
 
-条件表达式示例：
-- "formData.product && formData.product.startsWith('bt')"
-- "formData.price > 100"
-- "formData.category === 'electronics'"
-
-值表达式示例：
-- "formData.price * 10"
-- "'新值'"
-- "formData.otherField + 100"
+三元表达式示例：
+- 条件赋值: "(formData.category === 'vip') ? formData.price * 0.8 : formData.price"
+- 条件文本: "(formData.status === 'active') ? '启用' : '禁用'"
+- 多条件: "(formData.type === 'A' && formData.level > 5) ? 100 : 50"
+- 保持原值: "(formData.product) ? formData.price * 1.1 : formData.price"
 
 请只返回JSON配置，不要其他内容。`
   }

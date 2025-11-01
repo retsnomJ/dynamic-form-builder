@@ -116,9 +116,46 @@ interface EventAction {
   targetField?: string        // 目标字段名
   sourceExpression?: string   // 源表达式
   value?: any                // 固定值
-  condition?: string         // 执行条件
+  condition?: string         // 执行条件（不推荐，建议使用三元表达式）
 }
 ```
+
+### 🎯 条件逻辑最佳实践
+
+**✅ 推荐方式：使用三元表达式**
+```json
+{
+  "type": "blur",
+  "actions": [
+    {
+      "type": "setValue",
+      "targetField": "price",
+      "sourceExpression": "(formData.product && formData.product.startsWith('bt')) ? formData.price * 10 : formData.price"
+    }
+  ]
+}
+```
+
+**❌ 不推荐方式：使用单独的condition字段**
+```json
+{
+  "type": "blur",
+  "condition": "formData.product && formData.product.startsWith('bt')",
+  "actions": [
+    {
+      "type": "setValue",
+      "targetField": "price",
+      "sourceExpression": "formData.price * 10"
+    }
+  ]
+}
+```
+
+### 三元表达式优势
+
+1. **更灵活**：一个事件可以有多个动作，每个动作可以有不同的条件
+2. **语义更清晰**：条件和值计算逻辑在同一个表达式中
+3. **更易维护**：减少嵌套层级，逻辑更直观
 
 ### 联动示例
 
@@ -129,17 +166,17 @@ interface EventAction {
     {
       "type": "setValue",
       "targetField": "productCode",
-      "sourceExpression": "selectedOption.code"
+      "sourceExpression": "selectedOption ? selectedOption.code : ''"
     },
     {
       "type": "setValue",
       "targetField": "productName",
-      "sourceExpression": "selectedOption.name"
+      "sourceExpression": "selectedOption ? selectedOption.name : ''"
     },
     {
-      "type": "setVisibility",
-      "targetField": "advancedOptions",
-      "condition": "selectedOption.type === 'advanced'"
+      "type": "setValue",
+      "targetField": "discount",
+      "sourceExpression": "(formData.price > 1000) ? 0.1 : 0"
     }
   ]
 }
