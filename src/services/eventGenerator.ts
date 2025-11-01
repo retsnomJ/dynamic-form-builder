@@ -636,4 +636,108 @@ ${keyInfo.supportedActions.join(', ')}
     
     return result
   }
+
+  /**
+   * 生成事件配置的自然语言描述
+   */
+  static async generateNaturalDescription(event: FieldEvent, targetField: string, allFields: FieldConfig[]): Promise<string> {
+    console.group('🗣️ 生成自然语言描述')
+    console.log('📝 事件配置:', event)
+    console.log('🎯 目标字段:', targetField)
+    
+    try {
+      const prompt = this.generateDescriptionPrompt(event, targetField, allFields)
+      console.log('💬 提示词:', prompt)
+      
+      const response = await this.callLLMAPINew(prompt)
+      console.log('🤖 AI响应:', response)
+      
+      // 解析响应，提取自然语言描述
+      const description = this.parseNaturalDescription(response)
+      console.log('✅ 生成的描述:', description)
+      
+      return description
+    } catch (error) {
+      console.error('❌ 生成描述失败:', error)
+      // 返回默认描述
+      return this.generateFallbackDescription(event, targetField)
+    } finally {
+      console.groupEnd()
+    }
+  }
+
+  /**
+   * 生成自然语言描述的提示词
+   */
+  private static generateDescriptionPrompt(event: FieldEvent, targetField: string, allFields: FieldConfig[]): string {
+    const targetFieldInfo = allFields.find(f => f.fieldName === targetField)
+    const targetFieldLabel = targetFieldInfo?.fieldLabel || targetField
+
+    return `请将以下技术配置转换为普通用户能理解的自然语言描述：
+
+目标字段：${targetFieldLabel}（${targetField}）
+事件配置：
+${JSON.stringify(event, null, 2)}
+
+要求：
+1. 使用简单易懂的语言，避免技术术语
+2. 描述应该清楚说明什么时候触发、做什么操作
+3. 长度控制在50字以内
+4. 语言要亲切友好，符合中文表达习惯
+
+示例格式：
+- "当产品名称输入完成后，自动计算并填入单价"
+- "当用户选择不同类别时，自动更新相关选项"
+
+请直接返回描述文字，不要包含其他内容：`
+  }
+
+  /**
+   * 解析自然语言描述响应
+   */
+  private static parseNaturalDescription(response: string): string {
+    // 清理响应文本
+    let description = response.trim()
+    
+    // 移除可能的引号
+    if (description.startsWith('"') && description.endsWith('"')) {
+      description = description.slice(1, -1)
+    }
+    
+    // 移除可能的前缀
+    description = description.replace(/^(描述：|自然语言描述：|说明：)/, '')
+    
+    // 限制长度
+    if (description.length > 80) {
+      description = description.substring(0, 77) + '...'
+    }
+    
+    return description || '智能事件配置已生成'
+  }
+
+  /**
+   * 生成备用描述（当AI生成失败时使用）
+   */
+  private static generateFallbackDescription(event: FieldEvent, targetField: string): string {
+    const eventTypeMap: Record<string, string> = {
+      'blur': '失去焦点时',
+      'change': '值改变时',
+      'focus': '获得焦点时',
+      'input': '输入时',
+      'click': '点击时'
+    }
+    
+    const actionTypeMap: Record<string, string> = {
+      'setValue': '设置值',
+      'calculate': '计算',
+      'validate': '验证',
+      'show': '显示',
+      'hide': '隐藏'
+    }
+    
+    const eventTypeName = eventTypeMap[event.type] || '触发时'
+    const actionName = event.actions?.[0] ? actionTypeMap[event.actions[0].type] || '执行操作' : '执行操作'
+    
+    return `当字段${eventTypeName}，自动${actionName}`
+  }
 }

@@ -139,9 +139,20 @@
         </el-form-item>
 
         <div class="final-preview">
-          <h5>最终配置预览：</h5>
-          <div class="config-preview">
-            <pre>{{ JSON.stringify(generatedEvent, null, 2) }}</pre>
+          <div class="preview-row">
+            <div class="config-section">
+              <h5>配置预览：</h5>
+              <div class="config-preview">
+                <pre>{{ JSON.stringify(generatedEvent, null, 2) }}</pre>
+              </div>
+            </div>
+            <div class="description-section">
+              <h5>功能说明：</h5>
+              <div class="natural-description">
+                <el-icon class="description-icon"><InfoFilled /></el-icon>
+                <span class="description-text">{{ naturalDescription }}</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -172,6 +183,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { InfoFilled } from '@element-plus/icons-vue'
 import { EventGeneratorService } from '../services/eventGenerator'
 import type { FieldEvent, FieldConfig, IntentAnalysis } from '../../types/form-config'
 
@@ -196,6 +208,7 @@ const selectedFields = ref<string[]>([])
 const intentAnalysis = ref<IntentAnalysis | null>(null)
 const generatedEvent = ref<FieldEvent | null>(null)
 const targetField = ref('')
+const naturalDescription = ref('') // 新增：自然语言描述
 const isAnalyzing = ref(false)
 const isGenerating = ref(false)
 const validationErrors = ref<string[]>([])
@@ -206,6 +219,17 @@ const dialogVisible = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value)
 })
+
+// 监听targetFieldName变化，自动填充目标字段
+watch(() => props.targetFieldName, (newTargetFieldName) => {
+  if (newTargetFieldName) {
+    targetField.value = newTargetFieldName
+    // 如果目标字段不在选中字段列表中，自动添加
+    if (!selectedFields.value.includes(newTargetFieldName)) {
+      selectedFields.value.push(newTargetFieldName)
+    }
+  }
+}, { immediate: true })
 
 // 方法
 const fillExample = () => {
@@ -286,6 +310,19 @@ const generateConfig = async () => {
       validationErrors.value = validation.errors
     } else {
       generatedEvent.value = event
+      
+      // 生成自然语言描述
+      try {
+        naturalDescription.value = await EventGeneratorService.generateNaturalDescription(
+          event,
+          targetField.value || intentAnalysis.value.targetField,
+          props.fields
+        )
+      } catch (error) {
+        console.warn('生成自然语言描述失败:', error)
+        naturalDescription.value = '智能事件配置已生成'
+      }
+      
       nextStep() // 自动进入下一步
     }
   } catch (error) {
@@ -494,5 +531,63 @@ watch(() => props.visible, (newVal) => {
 
 .field-selection-section .section-label {
   margin-bottom: 12px;
+}
+
+/* 最终预览布局样式 */
+.preview-row {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.config-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.description-section {
+  flex: 0 0 300px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.description-section h5 {
+  margin: 0 0 12px 0;
+  color: #495057;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.natural-description {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.description-icon {
+  color: #409eff;
+  font-size: 16px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.description-text {
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+  .preview-row {
+    flex-direction: column;
+  }
+  
+  .description-section {
+    flex: none;
+  }
 }
 </style>

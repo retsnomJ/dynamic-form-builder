@@ -197,6 +197,7 @@
     <EventConfigHelper
       v-model:visible="eventConfigVisible"
       :fields="fields"
+      :target-field-name="currentFieldIndex >= 0 ? fields[currentFieldIndex]?.fieldName : undefined"
       @apply-event="applyEventToField"
     />
   </div>
