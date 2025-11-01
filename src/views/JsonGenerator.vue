@@ -15,166 +15,182 @@
           <el-button type="primary" @click="addField" icon="Plus">添加字段</el-button>
         </div>
 
-        <el-table :data="fields" border style="width: 100%">
-          <el-table-column label="字段名称" width="150">
-            <template #default="{ row, $index }">
-              <el-input 
-                v-model="row.fieldName" 
-                placeholder="fieldName"
-                @blur="validateFieldName($index)"
-              />
-            </template>
-          </el-table-column>
-
-          <el-table-column label="字段标签" width="150">
-            <template #default="{ row }">
-              <el-input v-model="row.fieldLabel" placeholder="显示标签" />
-            </template>
-          </el-table-column>
-
-          <el-table-column label="字段类型" width="120">
-            <template #default="{ row }">
-              <el-select v-model="row.fieldType" placeholder="选择类型">
-                <el-option
-                  v-for="type in fieldTypes"
-                  :key="type.value"
-                  :label="type.label"
-                  :value="type.value"
+        <!-- 第一行：基本字段信息 -->
+        <div class="table-section">
+          <h4 class="section-title">基本信息</h4>
+          <el-table :data="fields" border style="width: 100%; margin-bottom: 20px;">
+            <el-table-column label="字段名称" width="180">
+              <template #default="{ row, $index }">
+                <el-input 
+                  v-model="row.fieldName" 
+                  placeholder="fieldName"
+                  @blur="validateFieldName($index)"
                 />
-              </el-select>
-            </template>
-          </el-table-column>
+              </template>
+            </el-table-column>
 
-          <el-table-column label="必填" width="80">
-            <template #default="{ row }">
-              <el-checkbox v-model="row.required" />
-            </template>
-          </el-table-column>
+            <el-table-column label="字段标签" width="180">
+              <template #default="{ row }">
+                <el-input v-model="row.fieldLabel" placeholder="显示标签" />
+              </template>
+            </el-table-column>
 
-          <el-table-column label="禁用" width="80">
-            <template #default="{ row }">
-              <el-checkbox v-model="row.disabled" />
-            </template>
-          </el-table-column>
-
-          <el-table-column label="占位符" width="150">
-            <template #default="{ row }">
-              <el-input v-model="row.placeholder" placeholder="placeholder" />
-            </template>
-          </el-table-column>
-
-          <el-table-column label="默认值" width="120">
-            <template #default="{ row }">
-              <el-input v-model="row.defaultValue" placeholder="默认值" />
-            </template>
-          </el-table-column>
-
-          <el-table-column label="数据源类型" width="140">
-            <template #default="{ row, $index }">
-              <el-select 
-                v-model="row.dataSourceType"
-                placeholder="选择类型"
-                @change="onDataSourceTypeChange($index)"
-                style="width: 100%"
-              >
-                <el-option label="手动填写" value="manual" />
-                <el-option label="接口获取" value="api" />
-                <el-option label="表单内部传递" value="internal" />
-              </el-select>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="数据源" width="200">
-            <template #default="{ row, $index }">
-              <el-select 
-                v-if="row.dataSourceType === 'api'"
-                v-model="row.dataSourceId"
-                placeholder="选择API接口"
-                @change="onDataSourceChange($index)"
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="option in dataSourceOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-              <div v-else-if="row.dataSourceType === 'internal'" style="display: flex; flex-direction: column; gap: 4px;">
-                <el-select 
-                  v-model="row.internalFieldId"
-                  placeholder="选择字段"
-                  @change="onInternalFieldChange($index)"
-                  style="width: 100%"
-                  size="small"
-                >
+            <el-table-column label="字段类型" width="150">
+              <template #default="{ row }">
+                <el-select v-model="row.fieldType" placeholder="选择类型" style="width: 100%">
                   <el-option
-                    v-for="field in getAvailableInternalFields($index)"
-                    :key="field.fieldName"
-                    :label="field.fieldLabel"
-                    :value="field.fieldName"
+                    v-for="type in fieldTypes"
+                    :key="type.value"
+                    :label="type.label"
+                    :value="type.value"
                   />
                 </el-select>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="必填" width="80" align="center">
+              <template #default="{ row }">
+                <el-checkbox v-model="row.required" />
+              </template>
+            </el-table-column>
+
+            <el-table-column label="禁用" width="80" align="center">
+              <template #default="{ row }">
+                <el-checkbox v-model="row.disabled" />
+              </template>
+            </el-table-column>
+
+            <el-table-column label="占位符" width="180">
+              <template #default="{ row }">
+                <el-input v-model="row.placeholder" placeholder="placeholder" />
+              </template>
+            </el-table-column>
+
+            <el-table-column label="默认值" width="150">
+              <template #default="{ row }">
+                <el-input v-model="row.defaultValue" placeholder="默认值" />
+              </template>
+            </el-table-column>
+
+            <el-table-column label="操作" width="160" fixed="right">
+              <template #default="{ $index }">
+                <div class="action-buttons">
+                  <el-button 
+                    type="text" 
+                    size="small" 
+                    @click="openEventConfig($index)"
+                    style="color: #409eff"
+                  >
+                    事件
+                  </el-button>
+                  <el-button 
+                    type="text" 
+                    size="small" 
+                    @click="removeField($index)"
+                    style="color: #f56c6c"
+                  >
+                    删除
+                  </el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <!-- 第二行：数据源配置 -->
+        <div class="table-section">
+          <h4 class="section-title">数据源配置</h4>
+          <el-table :data="fields" border style="width: 100%;">
+            <el-table-column label="字段名称" width="180">
+              <template #default="{ row }">
+                <span class="field-name-display">{{ row.fieldName || '未设置' }}</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="数据源类型" width="160">
+              <template #default="{ row, $index }">
                 <el-select 
-                  v-if="row.internalFieldId"
-                  v-model="row.internalFieldProperty"
-                  placeholder="选择属性"
+                  v-model="row.dataSourceType"
+                  placeholder="选择类型"
+                  @change="onDataSourceTypeChange($index)"
+                  style="width: 100%"
+                >
+                  <el-option label="手动填写" value="manual" />
+                  <el-option label="接口获取" value="api" />
+                  <el-option label="表单内部传递" value="internal" />
+                </el-select>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="数据源" width="240">
+              <template #default="{ row, $index }">
+                <el-select 
+                  v-if="row.dataSourceType === 'api'"
+                  v-model="row.dataSourceId"
+                  placeholder="选择API接口"
                   @change="onDataSourceChange($index)"
                   style="width: 100%"
-                  size="small"
                 >
                   <el-option
-                    v-for="property in getAvailableFieldProperties(row.internalFieldId)"
-                    :key="property.value"
-                    :label="property.label"
-                    :value="property.value"
+                    v-for="option in dataSourceOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
                   />
                 </el-select>
-              </div>
-              <span v-else-if="row.dataSourceType === 'manual'" class="text-muted">手动填写</span>
-              <span v-else class="text-muted">-</span>
-            </template>
-          </el-table-column>
+                <div v-else-if="row.dataSourceType === 'internal'" style="display: flex; flex-direction: column; gap: 4px;">
+                  <el-select 
+                    v-model="row.internalFieldId"
+                    placeholder="选择字段"
+                    @change="onInternalFieldChange($index)"
+                    style="width: 100%"
+                    size="small"
+                  >
+                    <el-option
+                      v-for="field in getAvailableInternalFields($index)"
+                      :key="field.fieldName"
+                      :label="field.fieldLabel"
+                      :value="field.fieldName"
+                    />
+                  </el-select>
+                  <el-select 
+                    v-if="row.internalFieldId"
+                    v-model="row.internalFieldProperty"
+                    placeholder="选择属性"
+                    @change="onDataSourceChange($index)"
+                    style="width: 100%"
+                    size="small"
+                  >
+                    <el-option
+                      v-for="property in getAvailableFieldProperties(row.internalFieldId)"
+                      :key="property.value"
+                      :label="property.label"
+                      :value="property.value"
+                    />
+                  </el-select>
+                </div>
+                <span v-else-if="row.dataSourceType === 'manual'" class="text-muted">手动填写</span>
+                <span v-else class="text-muted">-</span>
+              </template>
+            </el-table-column>
 
-          <el-table-column label="可用字段" width="200">
-            <template #default="{ row }">
-              <div v-if="needsDataSource() && row.dataSourceId" class="available-fields">
-                <el-tag 
-                  v-for="field in getAvailableFields(row.dataSourceId)" 
-                  :key="field.key"
-                  size="small"
-                  style="margin: 2px"
-                >
-                  {{ field.label }}
-                </el-tag>
-              </div>
-              <span v-else class="text-muted">-</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="操作" width="160" fixed="right">
-            <template #default="{ $index }">
-              <div class="action-buttons">
-                <el-button 
-                  type="text" 
-                  size="small" 
-                  @click="openEventConfig($index)"
-                  style="color: #409eff"
-                >
-                  事件
-                </el-button>
-                <el-button 
-                  type="text" 
-                  size="small" 
-                  @click="removeField($index)"
-                  style="color: #f56c6c"
-                >
-                  删除
-                </el-button>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
+            <el-table-column label="可用字段" min-width="200">
+              <template #default="{ row }">
+                <div v-if="needsDataSource() && row.dataSourceId" class="available-fields">
+                  <el-tag 
+                    v-for="field in getAvailableFields(row.dataSourceId)" 
+                    :key="field.key"
+                    size="small"
+                    style="margin: 2px"
+                  >
+                    {{ field.label }}
+                  </el-tag>
+                </div>
+                <span v-else class="text-muted">-</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
       </div>
 
       <!-- 右侧：JSON预览 -->
@@ -736,11 +752,35 @@ addField()
   display: flex;
   gap: 8px;
   justify-content: center;
-}
-
 .action-buttons .el-button {
   padding: 4px 8px;
   font-size: 12px;
+}
+
+/* 新增样式：表格分组样式 */
+.table-section {
+  margin-bottom: 24px;
+}
+
+.section-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #606266;
+  padding-left: 8px;
+  border-left: 3px solid #409eff;
+}
+
+.field-name-display {
+  font-weight: 500;
+  color: #303133;
+}
+
+.field-name-display:empty::before {
+  content: "未设置";
+  color: #c0c4cc;
+  font-style: italic;
+}
 }
 
 /* 响应式设计 */

@@ -5,14 +5,14 @@ export interface DataSourceOption {
   description: string;
   url: string;
   method?: string;
-  params?: Record<string, any>;
+  params: Record<string, any>;  // 每个接口必须有参数配置
   responseMapping: {
     value: string;
     label: string;
-    customData?: Record<string, string>;
+    customData: Record<string, string>;  // 每个接口必须有customData配置
   };
   dataPath?: string;
-  isSearchable?: boolean; // 是否为搜索类型的接口
+  isSearchable?: boolean;
   fields: Array<{
     key: string;
     label: string;
@@ -49,71 +49,21 @@ export const predefinedDataSources: DataSourceOption[] = [
     ]
   },
   {
-    id: 'users-list',
-    name: '用户列表接口',
-    description: '获取用户列表',
-    url: 'http://localhost:3000/api/users',
-    method: 'GET',
-    responseMapping: {
-      value: 'id',
-      label: 'name'
-    },
-    dataPath: 'data',
-    isSearchable: true,
-    fields: [
-      { key: 'id', label: '用户ID', type: 'number' },
-      { key: 'name', label: '用户名', type: 'string' },
-      { key: 'email', label: '邮箱', type: 'string' },
-      { key: 'role', label: '角色', type: 'string' }
-    ]
-  },
-  {
-    id: 'categories-list',
-    name: '分类列表接口',
-    description: '获取产品分类列表',
-    url: 'http://localhost:3000/api/categories',
-    method: 'GET',
-    responseMapping: {
-      value: 'id',
-      label: 'name'
-    },
-    dataPath: 'data',
-    isSearchable: true,
-    fields: [
-      { key: 'id', label: '分类ID', type: 'number' },
-      { key: 'name', label: '分类名称', type: 'string' },
-      { key: 'code', label: '分类代码', type: 'string' },
-      { key: 'parentId', label: '父分类ID', type: 'number' }
-    ]
-  },
-  {
-    id: 'departments-list',
-    name: '部门列表接口',
-    description: '获取部门列表',
-    url: 'http://localhost:3000/api/departments',
-    method: 'GET',
-    responseMapping: {
-      value: 'id',
-      label: 'name'
-    },
-    dataPath: 'data',
-    isSearchable: true,
-    fields: [
-      { key: 'id', label: '部门ID', type: 'number' },
-      { key: 'name', label: '部门名称', type: 'string' },
-      { key: 'code', label: '部门代码', type: 'string' },
-      { key: 'manager', label: '部门经理', type: 'string' }
-    ]
-  },
-  {
     id: 'customer-types',
     name: '客户类型选项接口',
     description: '获取客户类型选项列表',
     url: 'http://localhost:3005/api/options/customer-types',
     method: 'GET',
+    params: {
+      name: '{searchKeyword}'
+    },
     responseMapping: {
       value: 'value',
-      label: 'label'
+      label: 'label',
+      customData: {
+        value: 'value',
+        label: 'label'
+      }
     },
     dataPath: 'data',
     isSearchable: true,
