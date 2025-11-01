@@ -50,6 +50,15 @@ export interface FieldEvent {
   actions: EventAction[];
 }
 
+// 意图分析结果接口
+export interface IntentAnalysis {
+  eventType: string
+  condition?: string
+  action: string
+  targetField: string
+  sourceField?: string
+}
+
 // 字段配置
 export interface FieldConfig {
   // 基础字段信息

@@ -152,16 +152,26 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="操作" width="100" fixed="right">
+          <el-table-column label="操作" width="160" fixed="right">
             <template #default="{ $index }">
-              <el-button 
-                type="text" 
-                size="small" 
-                @click="removeField($index)"
-                style="color: #f56c6c"
-              >
-                删除
-              </el-button>
+              <div class="action-buttons">
+                <el-button 
+                  type="text" 
+                  size="small" 
+                  @click="openEventConfig($index)"
+                  style="color: #409eff"
+                >
+                  事件
+                </el-button>
+                <el-button 
+                  type="text" 
+                  size="small" 
+                  @click="removeField($index)"
+                  style="color: #f56c6c"
+                >
+                  删除
+                </el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -182,13 +192,21 @@
         </div>
       </div>
     </div>
+
+    <!-- 事件配置助手 -->
+    <EventConfigHelper
+      v-model:visible="eventConfigVisible"
+      :fields="fields"
+      @apply-event="applyEventToField"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { FieldConfig } from '../../types/form-config'
+import type { FieldConfig, FieldEvent } from '../../types/form-config'
 import { getDataSourceOptions, getDataSourceById } from '../data/data-sources'
+import EventConfigHelper from '../components/EventConfigHelper.vue'
 
 // 扩展FieldConfig接口以支持表格编辑
 interface EditableFieldConfig extends FieldConfig {
@@ -217,8 +235,37 @@ const fieldTypes = [
 // 数据源选项
 const dataSourceOptions = getDataSourceOptions()
 
-// 字段配置数据
-const fields = ref<EditableFieldConfig[]>([])
+// 字段配置数据 - 预填充测试数据
+const fields = ref<EditableFieldConfig[]>([
+  {
+    fieldName: "product",
+    fieldLabel: "产品",
+    fieldType: "string",
+    required: false,
+    disabled: false,
+    componentConfig: {},
+    events: [],
+    validation: {
+      rules: []
+    }
+  },
+  {
+    fieldName: "price",
+    fieldLabel: "单价",
+    fieldType: "string",
+    required: false,
+    disabled: false,
+    componentConfig: {},
+    events: [],
+    validation: {
+      rules: []
+    }
+  }
+])
+
+// 事件配置相关
+const eventConfigVisible = ref(false)
+const currentFieldIndex = ref(-1)
 
 // 添加字段
 const addField = () => {
@@ -242,6 +289,46 @@ const addField = () => {
 // 删除字段
 const removeField = (index: number) => {
   fields.value.splice(index, 1)
+}
+
+// 打开事件配置
+const openEventConfig = (index: number) => {
+  currentFieldIndex.value = index
+  eventConfigVisible.value = true
+}
+
+// 应用事件到字段
+const applyEventToField = (fieldName: string, event: FieldEvent) => {
+  console.group('📝 应用事件到字段')
+  console.log('🎯 目标字段名:', fieldName)
+  console.log('⚙️ 事件配置:', event)
+  
+  const fieldIndex = fields.value.findIndex(f => f.fieldName === fieldName)
+  console.log('📍 字段索引:', fieldIndex)
+  
+  if (fieldIndex !== -1) {
+    if (!fields.value[fieldIndex].events) {
+      fields.value[fieldIndex].events = []
+      console.log('🆕 初始化字段events数组')
+    }
+    
+    // 添加新事件或替换同类型事件
+    const existingEventIndex = fields.value[fieldIndex].events!.findIndex(e => e.type === event.type)
+    console.log('🔍 现有事件索引:', existingEventIndex)
+    
+    if (existingEventIndex !== -1) {
+      fields.value[fieldIndex].events![existingEventIndex] = event
+      console.log('🔄 替换现有事件')
+    } else {
+      fields.value[fieldIndex].events!.push(event)
+      console.log('➕ 添加新事件')
+    }
+    
+    console.log('✅ 更新后的字段:', fields.value[fieldIndex])
+  } else {
+    console.error('❌ 未找到目标字段:', fieldName)
+  }
+  console.groupEnd()
 }
 
 // 验证字段名称
@@ -598,6 +685,17 @@ addField()
 
 .el-table .el-table__cell {
   padding: 8px 0;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.action-buttons .el-button {
+  padding: 4px 8px;
+  font-size: 12px;
 }
 
 /* 响应式设计 */
