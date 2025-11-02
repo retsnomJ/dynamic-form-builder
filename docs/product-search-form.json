@@ -12,8 +12,7 @@
       "componentConfig": {
         "clearable": true,
         "filterable": true,
-        "remote": true,
-        "remoteMethod": "searchProducts"
+        "remote": true
       },
       "dataSource": {
         "type": "api",

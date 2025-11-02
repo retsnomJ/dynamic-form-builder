@@ -599,7 +599,6 @@ const onDataSourceChange = (index: number) => {
           field.componentConfig.clearable = true
           field.componentConfig.filterable = true
           field.componentConfig.remote = true
-          field.componentConfig.remoteMethod = 'searchProducts'
         } else {
           // 如果字段类型不是select，但配置了API数据源，自动修改字段类型为select
           field.fieldType = 'select'
@@ -609,7 +608,6 @@ const onDataSourceChange = (index: number) => {
           field.componentConfig.clearable = true
           field.componentConfig.filterable = true
           field.componentConfig.remote = true
-          field.componentConfig.remoteMethod = 'searchProducts'
         }
       }
     }

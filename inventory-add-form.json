@@ -56,7 +56,6 @@
         "clearable": true,
         "filterable": true,
         "remote": true,
-        "remoteMethod": "searchProducts",
         "placeholder": "请输入产品名称搜索"
       },
       "validation": {
