@@ -63,7 +63,7 @@ export interface IntentAnalysis {
 // 增强的意图分析结果接口
 export interface EnhancedIntentAnalysis {
   // 事件相关分析
-  eventAnalysis: {
+  eventAnalysis?: {
     eventType: string;
     condition?: string;
     action: string;

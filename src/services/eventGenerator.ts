@@ -349,11 +349,11 @@ export class EventGeneratorService {
     }
   }
 
-  private static async generateComponentConfig(componentConfigAnalysis: NonNullable<EnhancedIntentAnalysis['componentConfigAnalysis']>, allFields: FieldConfig[]): Promise<any> {
+  private static async generateComponentConfig(componentConfigAnalysis: NonNullable<EnhancedIntentAnalysis['componentConfigAnalysis']>, selectedFields: FieldConfig[]): Promise<any> {
     try {
       console.log('🔧 生成组件配置 - 使用LLM')
       
-      const prompt = this.buildComponentConfigGenerationPrompt(componentConfigAnalysis, allFields)
+      const prompt = this.buildComponentConfigGenerationPrompt(componentConfigAnalysis, selectedFields)
       const response = await this.callLLMAPI(prompt)
       const componentConfig = this.parseComponentConfig(response)
       
@@ -420,6 +420,12 @@ export class EventGeneratorService {
     // 使用增强分析，但只返回事件部分以保持兼容性
     try {
       const enhancedAnalysis = await this.analyzeEnhancedIntent(description, selectedFields)
+      
+      // 检查eventAnalysis是否存在
+      if (!enhancedAnalysis.eventAnalysis) {
+        throw new Error('增强意图分析未返回事件分析结果')
+      }
+      
       const compatibleAnalysis: IntentAnalysis = {
         eventType: enhancedAnalysis.eventAnalysis.eventType,
         condition: enhancedAnalysis.eventAnalysis.condition,
@@ -444,7 +450,7 @@ export class EventGeneratorService {
    */
   static async generateSelectiveConfig(
     enhancedAnalysis: EnhancedIntentAnalysis, 
-    allFields: FieldConfig[], 
+    selectedFields: FieldConfig[], 
     selectedTypes: string[]
   ): Promise<{
     event?: FieldEvent;
@@ -466,15 +472,15 @@ export class EventGeneratorService {
           action: enhancedAnalysis.eventAnalysis.action,
           targetField: enhancedAnalysis.eventAnalysis.targetField,
           sourceField: enhancedAnalysis.eventAnalysis.sourceField
-        }, allFields)
+        }, selectedFields)
       }
 
       if (selectedTypes.includes('validation') && enhancedAnalysis.validationAnalysis?.hasValidation) {
-        result.validation = await this.generateValidationConfig(enhancedAnalysis.validationAnalysis, allFields)
+        result.validation = await this.generateValidationConfig(enhancedAnalysis.validationAnalysis, selectedFields)
       }
 
       if (selectedTypes.includes('componentConfig') && enhancedAnalysis.componentConfigAnalysis?.hasConfig) {
-        result.componentConfig = await this.generateComponentConfig(enhancedAnalysis.componentConfigAnalysis, allFields)
+        result.componentConfig = await this.generateComponentConfig(enhancedAnalysis.componentConfigAnalysis, selectedFields)
       }
 
       return result
@@ -487,14 +493,14 @@ export class EventGeneratorService {
   /**
    * 增强的配置生成 - 支持生成事件、校验和组件配置
    */
-  static async generateEnhancedConfig(enhancedAnalysis: EnhancedIntentAnalysis, allFields: FieldConfig[]): Promise<{
+  static async generateEnhancedConfig(enhancedAnalysis: EnhancedIntentAnalysis, selectedFields: FieldConfig[]): Promise<{
     event?: FieldEvent;
     validation?: any;
     componentConfig?: any;
   }> {
     console.group('⚙️ 增强配置生成')
     console.log('🧠 增强意图分析结果:', enhancedAnalysis)
-    console.log('📋 所有字段:', allFields.map(f => `${f.fieldLabel}(${f.fieldName})`))
+    console.log('📋 选中字段:', selectedFields.map(f => `${f.fieldLabel}(${f.fieldName})`))
     
     const result: {
       event?: FieldEvent;
@@ -505,18 +511,18 @@ export class EventGeneratorService {
     try {
       // 生成事件配置
       if (enhancedAnalysis.eventAnalysis) {
-        const eventConfig = await this.generateEventConfig(enhancedAnalysis.eventAnalysis, allFields)
+        const eventConfig = await this.generateEventConfig(enhancedAnalysis.eventAnalysis, selectedFields)
         result.event = eventConfig
       }
       
       // 生成校验配置
       if (enhancedAnalysis.validationAnalysis?.hasValidation) {
-        result.validation = await this.generateValidationConfig(enhancedAnalysis.validationAnalysis, allFields)
+        result.validation = await this.generateValidationConfig(enhancedAnalysis.validationAnalysis, selectedFields)
       }
       
       // 生成组件配置
       if (enhancedAnalysis.componentConfigAnalysis?.hasConfig) {
-        result.componentConfig = await this.generateComponentConfig(enhancedAnalysis.componentConfigAnalysis, allFields)
+        result.componentConfig = await this.generateComponentConfig(enhancedAnalysis.componentConfigAnalysis, selectedFields)
       }
       
       console.log('✅ 生成的增强配置:', result)
@@ -533,12 +539,12 @@ export class EventGeneratorService {
   /**
    * 生成校验配置
    */
-  private static async generateValidationConfig(validationAnalysis: NonNullable<EnhancedIntentAnalysis['validationAnalysis']>, allFields: FieldConfig[]): Promise<any> {
+  private static async generateValidationConfig(validationAnalysis: NonNullable<EnhancedIntentAnalysis['validationAnalysis']>, selectedFields: FieldConfig[]): Promise<any> {
     console.group('🔍 生成校验配置')
     console.log('📋 校验分析结果:', validationAnalysis)
     
     try {
-      const prompt = this.buildValidationGenerationPrompt(validationAnalysis, allFields)
+      const prompt = this.buildValidationGenerationPrompt(validationAnalysis, selectedFields)
       console.log('📝 校验生成提示词:', prompt)
       
       const response = await this.callLLMAPI(prompt)
@@ -593,12 +599,12 @@ export class EventGeneratorService {
       return { rules }
     }
   }
-  static async generateEventConfig(intentAnalysis: IntentAnalysis, allFields: FieldConfig[]): Promise<FieldEvent> {
+  static async generateEventConfig(intentAnalysis: IntentAnalysis, selectedFields: FieldConfig[]): Promise<FieldEvent> {
     console.group('⚙️ 步骤2：生成事件配置')
     console.log('🧠 意图分析结果:', intentAnalysis)
-    console.log('📋 所有字段:', allFields.map(f => `${f.fieldLabel}(${f.fieldName})`))
+    console.log('📋 所有字段:', selectedFields.map(f => `${f.fieldLabel}(${f.fieldName})`))
     
-    const prompt = this.buildConfigGenerationPrompt(intentAnalysis, allFields)
+    const prompt = this.buildConfigGenerationPrompt(intentAnalysis, selectedFields)
     
     try {
       const response = await this.callLLMAPI(prompt)
@@ -618,13 +624,13 @@ export class EventGeneratorService {
   /**
    * 生成事件配置的自然语言描述
    */
-  static async generateNaturalDescription(event: FieldEvent, targetField: string, allFields: FieldConfig[]): Promise<string> {
+  static async generateNaturalDescription(event: FieldEvent, targetField: string, selectedFields: FieldConfig[]): Promise<string> {
     console.group('🗣️ 生成自然语言描述')
     console.log('📝 事件配置:', event)
     console.log('🎯 目标字段:', targetField)
     
     try {
-      const prompt = this.buildDescriptionGenerationPrompt(event, targetField, allFields)
+      const prompt = this.buildDescriptionGenerationPrompt(event, targetField, selectedFields)
       console.log('💬 提示词:', prompt)
       
       const response = await this.callLLMAPI(prompt)
@@ -706,34 +712,8 @@ export class EventGeneratorService {
    * 构建选择性意图分析提示词
    */
   private static buildSelectiveIntentAnalysisPrompt(description: string, selectedFields: FieldConfig[], selectedTypes: string[]): string {
-    const fieldsInfo = selectedFields.map(field => {
-      let info = `- ${field.fieldName} (${field.fieldLabel}): ${field.fieldType}`
-      
-      // 添加完整字段信息
-      if (field.required) info += ' [必填]'
-      if (field.disabled) info += ' [禁用]'
-      if (!field.visible) info += ' [隐藏]'
-      if (!field.editable) info += ' [只读]'
-      
-      if (field.validation?.rules?.length) {
-        info += ` [校验: ${field.validation.rules.map(r => r.message || r.required ? '必填' : '').join(', ')}]`
-      }
-      
-      if (field.componentConfig) {
-        const configs = Object.entries(field.componentConfig)
-          .filter(([_, value]) => value !== undefined && value !== null)
-          .map(([key, value]) => `${key}:${value}`)
-        if (configs.length > 0) {
-          info += ` [配置: ${configs.join(', ')}]`
-        }
-      }
-      
-      if (field.dataSource) {
-        info += ` [数据源: ${field.dataSource.type}]`
-      }
-      
-      return info
-    }).join('\n')
+    // 提供完整的 JSON 格式字段信息
+    const fieldsInfo = JSON.stringify(selectedFields, null, 2)
 
     const eventTypes = ['blur', 'change']
     
@@ -848,34 +828,8 @@ ${jsonStructure}
    * 构建增强的意图分析提示词
    */
   private static buildEnhancedIntentAnalysisPrompt(description: string, selectedFields: FieldConfig[]): string {
-    const fieldsInfo = selectedFields.map(field => {
-      let info = `- ${field.fieldName} (${field.fieldLabel}): ${field.fieldType}`
-      
-      // 添加完整字段信息
-      if (field.required) info += ' [必填]'
-      if (field.disabled) info += ' [禁用]'
-      if (!field.visible) info += ' [隐藏]'
-      if (!field.editable) info += ' [只读]'
-      
-      if (field.validation?.rules?.length) {
-        info += ` [校验: ${field.validation.rules.map(r => r.message || r.required ? '必填' : '').join(', ')}]`
-      }
-      
-      if (field.componentConfig) {
-        const configs = Object.entries(field.componentConfig)
-          .filter(([_, value]) => value !== undefined && value !== null)
-          .map(([key, value]) => `${key}:${value}`)
-        if (configs.length > 0) {
-          info += ` [配置: ${configs.join(', ')}]`
-        }
-      }
-      
-      if (field.dataSource) {
-        info += ` [数据源: ${field.dataSource.type}]`
-      }
-      
-      return info
-    }).join('\n')
+    // 提供完整的 JSON 格式字段信息
+    const fieldsInfo = JSON.stringify(selectedFields, null, 2)
 
     const eventTypes = ['blur', 'change']
 
@@ -896,10 +850,8 @@ ${jsonStructure}
   /**
    * 构建配置生成提示词
    */
-  private static buildConfigGenerationPrompt(intentAnalysis: IntentAnalysis, allFields: FieldConfig[]): string {
-    const fieldsInfo = allFields.map(field => 
-      `- ${field.fieldName} (${field.fieldLabel}): ${field.fieldType}`
-    ).join('\n')
+  private static buildConfigGenerationPrompt(intentAnalysis: IntentAnalysis, selectedFields: FieldConfig[]): string {
+    const fieldsInfo = JSON.stringify(selectedFields, null, 2)
 
     return CONFIG_GENERATION_PROMPT_TEMPLATE
       .replace('{eventType}', intentAnalysis.eventType)
@@ -913,10 +865,8 @@ ${jsonStructure}
   /**
    * 构建校验配置生成提示词
    */
-  private static buildValidationGenerationPrompt(validationAnalysis: NonNullable<EnhancedIntentAnalysis['validationAnalysis']>, allFields: FieldConfig[]): string {
-    const fieldsInfo = allFields.map(field => 
-      `- ${field.fieldName} (${field.fieldLabel}): ${field.fieldType}`
-    ).join('\n')
+  private static buildValidationGenerationPrompt(validationAnalysis: NonNullable<EnhancedIntentAnalysis['validationAnalysis']>, selectedFields: FieldConfig[]): string {
+    const fieldsInfo = JSON.stringify(selectedFields, null, 2)
 
     const rulesInfo = validationAnalysis.rules.map(rule => 
       `${rule.type}: ${rule.message || ''} (触发: ${rule.trigger || 'blur'})`
@@ -932,14 +882,12 @@ ${jsonStructure}
   /**
    * 构建组件配置生成提示词
    */
-  private static buildComponentConfigGenerationPrompt(componentConfigAnalysis: NonNullable<EnhancedIntentAnalysis['componentConfigAnalysis']>, allFields: FieldConfig[]): string {
-    const fieldsInfo = allFields.map(field => 
-      `- ${field.fieldName} (${field.fieldLabel}): ${field.fieldType}`
-    ).join('\n')
+  private static buildComponentConfigGenerationPrompt(componentConfigAnalysis: NonNullable<EnhancedIntentAnalysis['componentConfigAnalysis']>, selectedFields: FieldConfig[]): string {
+    const fieldsInfo = JSON.stringify(selectedFields, null, 2)
 
     // 找到目标字段的类型
     const targetField = componentConfigAnalysis.recommendedTargetField || ''
-    const targetFieldInfo = allFields.find(f => f.fieldName === targetField)
+    const targetFieldInfo = selectedFields.find(f => f.fieldName === targetField)
     const fieldType = targetFieldInfo?.fieldType || 'unknown'
 
     return COMPONENT_CONFIG_GENERATION_PROMPT_TEMPLATE
@@ -953,10 +901,8 @@ ${jsonStructure}
   /**
    * 构建描述生成提示词
    */
-  private static buildDescriptionGenerationPrompt(event: FieldEvent, targetField: string, allFields: FieldConfig[]): string {
-    const fieldsInfo = allFields.map(field => 
-      `- ${field.fieldName} (${field.fieldLabel}): ${field.fieldType}`
-    ).join('\n')
+  private static buildDescriptionGenerationPrompt(event: FieldEvent, targetField: string, selectedFields: FieldConfig[]): string {
+    const fieldsInfo = JSON.stringify(selectedFields, null, 2)
 
     return DESCRIPTION_GENERATION_PROMPT_TEMPLATE
       .replace('{eventConfig}', JSON.stringify(event, null, 2))
@@ -1060,14 +1006,18 @@ ${jsonStructure}
       const parsed = JSON.parse(jsonMatch[0])
       console.log('✅ 解析后的对象:', parsed)
       
-      // 验证必需字段
-      if (!parsed.eventAnalysis || !parsed.eventAnalysis.eventType || !parsed.eventAnalysis.action || !parsed.eventAnalysis.targetField) {
-        console.error('❌ 增强意图分析结果缺少必需字段:', parsed)
-        throw new Error('增强意图分析结果缺少必需字段')
+      // 验证至少有一个配置类型
+      const hasEvent = parsed.eventAnalysis && parsed.eventAnalysis.eventType && parsed.eventAnalysis.action && parsed.eventAnalysis.targetField
+      const hasValidation = parsed.validationAnalysis?.hasValidation
+      const hasComponentConfig = parsed.componentConfigAnalysis?.hasConfig
+      
+      if (!hasEvent && !hasValidation && !hasComponentConfig) {
+        console.error('❌ 增强意图分析结果必须至少包含一种配置类型:', parsed)
+        throw new Error('增强意图分析结果必须至少包含一种配置类型')
       }
 
       const result: EnhancedIntentAnalysis = {
-        eventAnalysis: {
+        eventAnalysis: hasEvent ? {
           eventType: parsed.eventAnalysis.eventType,
           condition: parsed.eventAnalysis.condition,
           action: parsed.eventAnalysis.action,
@@ -1075,7 +1025,7 @@ ${jsonStructure}
           sourceField: parsed.eventAnalysis.sourceField,
           description: parsed.eventAnalysis.description || '事件配置',
           recommendedTargetField: parsed.eventAnalysis.recommendedTargetField
-        },
+        } : undefined,
         validationAnalysis: parsed.validationAnalysis?.hasValidation ? {
           hasValidation: parsed.validationAnalysis.hasValidation,
           rules: parsed.validationAnalysis.rules || [],

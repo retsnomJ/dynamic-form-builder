@@ -99,7 +99,7 @@
           
           <!-- 增强模式分析结果 -->
            <div v-if="useEnhancedMode && enhancedIntentAnalysis" class="enhanced-analysis-card">
-             <div class="analysis-section">
+             <div v-if="enhancedIntentAnalysis.eventAnalysis" class="analysis-section">
                <h6>事件分析：</h6>
                <div class="analysis-item">
                  <p><strong>事件类型：</strong>{{ enhancedIntentAnalysis.eventAnalysis.eventType }}</p>
@@ -542,10 +542,15 @@ const generateConfig = async () => {
   currentStep.value = 2
 
   try {
+    // 提取选中字段的详细信息
+    const selectedFieldsInfo = props.fields.filter(field => 
+      selectedFields.value.includes(field.fieldName)
+    )
+
     // 使用选择性配置生成
     const config = await EventGeneratorService.generateSelectiveConfig(
       enhancedIntentAnalysis.value,
-      props.fields,
+      selectedFieldsInfo,
       selectedConfigTypes.value
     )
     
@@ -570,8 +575,8 @@ const generateConfig = async () => {
         if (config.event) {
           naturalDescription.value = await EventGeneratorService.generateNaturalDescription(
             config.event,
-            targetField.value || enhancedIntentAnalysis.value.eventAnalysis?.targetField,
-            props.fields
+            targetField.value || enhancedIntentAnalysis.value.eventAnalysis?.targetField || '',
+            selectedFieldsInfo
           )
         } else {
           // 根据生成的配置类型生成描述
