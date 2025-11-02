@@ -355,6 +355,24 @@ export class EventGeneratorService {
   }
 
   /**
+   * 选择性意图分析 - 根据用户选择的配置类型进行分析
+   */
+  static async analyzeSelectiveIntent(
+    description: string, 
+    selectedFields: FieldConfig[], 
+    selectedTypes: string[]
+  ): Promise<EnhancedIntentAnalysis> {
+    try {
+      const prompt = this.buildSelectiveIntentAnalysisPrompt(description, selectedFields, selectedTypes)
+      const response = await this.callLLMAPI(prompt)
+      return this.parseEnhancedIntentAnalysis(response)
+    } catch (error) {
+      console.error('选择性意图分析失败:', error)
+      throw new Error('选择性意图分析失败，请重试')
+    }
+  }
+
+  /**
    * 增强的意图分析 - 分离事件、校验和配置
    */
   static async analyzeEnhancedIntent(description: string, selectedFields: FieldConfig[]): Promise<EnhancedIntentAnalysis> {
@@ -406,6 +424,51 @@ export class EventGeneratorService {
       console.error('❌ 意图分析失败:', error)
       console.groupEnd()
       throw new Error(`意图分析失败: ${error instanceof Error ? error.message : '未知错误'}`)
+    }
+  }
+
+  /**
+   * 选择性配置生成 - 根据用户选择的配置类型生成对应配置
+   */
+  static async generateSelectiveConfig(
+    enhancedAnalysis: EnhancedIntentAnalysis, 
+    allFields: FieldConfig[], 
+    selectedTypes: string[]
+  ): Promise<{
+    event?: FieldEvent;
+    validation?: any;
+    componentConfig?: any;
+  }> {
+    const result: {
+      event?: FieldEvent;
+      validation?: any;
+      componentConfig?: any;
+    } = {}
+
+    try {
+      // 根据选择的类型生成对应配置
+      if (selectedTypes.includes('event') && enhancedAnalysis.eventAnalysis) {
+        result.event = await this.generateEventConfig({
+          eventType: enhancedAnalysis.eventAnalysis.eventType,
+          condition: enhancedAnalysis.eventAnalysis.condition,
+          action: enhancedAnalysis.eventAnalysis.action,
+          targetField: enhancedAnalysis.eventAnalysis.targetField,
+          sourceField: enhancedAnalysis.eventAnalysis.sourceField
+        }, allFields)
+      }
+
+      if (selectedTypes.includes('validation') && enhancedAnalysis.validationAnalysis?.hasValidation) {
+        result.validation = await this.generateValidationConfig(enhancedAnalysis.validationAnalysis, allFields)
+      }
+
+      if (selectedTypes.includes('componentConfig') && enhancedAnalysis.componentConfigAnalysis?.hasConfig) {
+        result.componentConfig = await this.generateComponentConfig(enhancedAnalysis.componentConfigAnalysis, allFields)
+      }
+
+      return result
+    } catch (error) {
+      console.error('选择性配置生成失败:', error)
+      throw new Error('选择性配置生成失败，请重试')
     }
   }
 
@@ -627,6 +690,145 @@ export class EventGeneratorService {
 
   // ==================== 私有方法 ====================
   
+  /**
+   * 构建选择性意图分析提示词
+   */
+  private static buildSelectiveIntentAnalysisPrompt(description: string, selectedFields: FieldConfig[], selectedTypes: string[]): string {
+    const fieldsInfo = selectedFields.map(field => {
+      let info = `- ${field.fieldName} (${field.fieldLabel}): ${field.fieldType}`
+      
+      // 添加完整字段信息
+      if (field.required) info += ' [必填]'
+      if (field.disabled) info += ' [禁用]'
+      if (!field.visible) info += ' [隐藏]'
+      if (!field.editable) info += ' [只读]'
+      
+      if (field.validation?.rules?.length) {
+        info += ` [校验: ${field.validation.rules.map(r => r.message || r.required ? '必填' : '').join(', ')}]`
+      }
+      
+      if (field.componentConfig) {
+        const configs = Object.entries(field.componentConfig)
+          .filter(([_, value]) => value !== undefined && value !== null)
+          .map(([key, value]) => `${key}:${value}`)
+        if (configs.length > 0) {
+          info += ` [配置: ${configs.join(', ')}]`
+        }
+      }
+      
+      if (field.dataSource) {
+        info += ` [数据源: ${field.dataSource.type}]`
+      }
+      
+      return info
+    }).join('\n')
+
+    const eventTypes = ['input', 'blur', 'focus', 'change', 'click']
+    
+    // 根据选择的类型调整分析重点
+    let analysisInstructions = '请仔细分析用户描述，识别以下方面的需求：\n\n'
+    let requiredSections = []
+    
+    if (selectedTypes.includes('event')) {
+      analysisInstructions += '1. **事件逻辑**：字段间的交互、数据联动、自动计算等\n'
+      requiredSections.push('eventAnalysis')
+    }
+    
+    if (selectedTypes.includes('validation')) {
+      analysisInstructions += '2. **校验规则**：数据验证、格式检查、必填项等\n'
+      requiredSections.push('validationAnalysis')
+    }
+    
+    if (selectedTypes.includes('componentConfig')) {
+      analysisInstructions += '3. **组件配置**：UI展示相关的配置，如占位符、清空按钮、过滤等\n'
+      requiredSections.push('componentConfigAnalysis')
+    }
+
+    // 构建JSON结构说明
+    let jsonStructure = '{\n'
+    
+    if (selectedTypes.includes('event')) {
+      jsonStructure += `  "eventAnalysis": {
+    "eventType": "事件类型(input/blur/focus/change)",
+    "condition": "触发条件(可选)",
+    "action": "执行动作的描述",
+    "targetField": "目标字段名称",
+    "sourceField": "源字段名称(如果有条件判断)",
+    "description": "事件功能的简洁描述",
+    "recommendedTargetField": "AI推荐的最佳目标字段"
+  },\n`
+    }
+    
+    if (selectedTypes.includes('validation')) {
+      jsonStructure += `  "validationAnalysis": {
+    "hasValidation": true/false,
+    "rules": [
+      {
+        "type": "校验类型(required/min/max/pattern/custom)",
+        "value": "校验值(如果适用)",
+        "message": "错误提示信息",
+        "trigger": "触发时机(blur/change)"
+      }
+    ],
+    "description": "校验规则的描述",
+    "recommendedTargetField": "AI推荐应用校验的字段"
+  },\n`
+    }
+    
+    if (selectedTypes.includes('componentConfig')) {
+      jsonStructure += `  "componentConfigAnalysis": {
+    "hasConfig": true/false,
+    "config": {
+      "placeholder": "占位符文本",
+      "clearable": true/false,
+      "filterable": true/false,
+      "其他配置": "配置值"
+    },
+    "description": "组件配置的描述",
+    "recommendedTargetField": "AI推荐应用配置的字段"
+  },\n`
+    }
+    
+    jsonStructure = jsonStructure.replace(/,\n$/, '\n') + '}'
+
+    return `你是一个表单配置专家。请分析用户的需求描述，根据用户选择的配置类型进行针对性分析。
+
+用户描述：${description}
+
+相关字段完整信息：
+${fieldsInfo}
+
+可用事件类型：${eventTypes.join(', ')}
+
+用户选择的配置类型：${selectedTypes.map(type => {
+  const typeMap: { [key: string]: string } = {
+    'event': '事件逻辑',
+    'validation': '校验规则', 
+    'componentConfig': '组件配置'
+  }
+  return typeMap[type] || type
+}).join('、')}
+
+${analysisInstructions}
+
+请以JSON格式返回分析结果：
+${jsonStructure}
+
+注意事项：
+1. 仔细分析用户描述中涉及的所有字段
+2. 为每个配置项推荐最合适的目标字段
+3. 推荐字段必须从可用字段列表中选择
+4. 如果描述中明确指定了字段，优先使用指定的字段
+5. 如果没有明确指定，根据语义分析推荐最合适的字段
+6. 确保推荐的字段与配置的功能相匹配
+7. 只分析用户选择的配置类型，未选择的类型可以省略或设为null
+8. 确保各个部分不重复，各司其职
+9. 校验规则只关注数据验证，不涉及业务逻辑
+10. 组件配置只关注UI展示，不涉及数据处理
+
+请只返回JSON，不要其他内容。`
+  }
+
   /**
    * 构建增强的意图分析提示词
    */

@@ -18,25 +18,27 @@
       <div v-if="currentStep === 0" class="step-content">
         <h4>请描述您需要的事件逻辑并选择相关字段</h4>
         
-        <!-- 模式选择 -->
-        <div class="mode-selection">
-          <label class="section-label">配置模式：</label>
-          <el-radio-group v-model="useEnhancedMode" class="mode-options">
-            <el-radio :label="false">传统模式（仅事件）</el-radio>
-            <el-radio :label="true">增强模式（事件+校验+配置）</el-radio>
-          </el-radio-group>
+        <!-- 配置类型选择 -->
+        <div class="config-type-selection">
+          <label class="section-label">选择需要生成的配置类型：</label>
+          <el-checkbox-group v-model="selectedConfigTypes" class="config-type-options">
+            <el-checkbox label="event">事件配置</el-checkbox>
+            <el-checkbox label="validation">校验规则</el-checkbox>
+            <el-checkbox label="componentConfig">配置限制</el-checkbox>
+          </el-checkbox-group>
+          <div class="config-type-hint">
+            <el-text size="small" type="info">至少选择一种配置类型</el-text>
+          </div>
         </div>
         
         <!-- 需求描述部分 -->
         <div class="description-section">
-          <label class="section-label">{{ useEnhancedMode ? '智能配置描述：' : '事件逻辑描述：' }}</label>
+          <label class="section-label">配置需求描述：</label>
           <el-input
             v-model="description"
             type="textarea"
             :rows="3"
-            :placeholder="useEnhancedMode ? 
-              '例如：当产品名称以bt开头时，单价在失去焦点时乘以10，并且单价必须大于0' : 
-              '例如：当产品名称以bt开头时，单价在失去焦点时乘以10'"
+            :placeholder="getDescriptionPlaceholder()"
             class="description-input"
           />
           <div class="example-actions">
@@ -68,8 +70,8 @@
         </div>
 
         <div class="step-actions">
-          <el-button type="primary" :disabled="!description.trim() || selectedFields.length === 0" @click="analyzeIntent">
-            {{ useEnhancedMode ? '下一步：智能分析' : '下一步：分析意图' }}
+          <el-button type="primary" :disabled="!description.trim() || selectedFields.length === 0 || selectedConfigTypes.length === 0" @click="analyzeIntent">
+            下一步：智能分析
           </el-button>
         </div>
       </div>
@@ -360,6 +362,7 @@ const isGenerating = ref(false)
 const validationErrors = ref<string[]>([])
 const errorMessage = ref('')
 const useEnhancedMode = ref(true) // 新增：是否使用增强模式
+const selectedConfigTypes = ref<string[]>(['event']) // 新增：选择的配置类型，默认选择事件配置
 
 // 计算属性
 const dialogVisible = computed({
@@ -381,6 +384,27 @@ watch(() => props.targetFieldName, (newTargetFieldName) => {
 // 方法
 const fillExample = () => {
   description.value = '当产品名称以bt开头时，单价在失去焦点时乘以10'
+}
+
+// 获取描述占位符
+const getDescriptionPlaceholder = () => {
+  const types = selectedConfigTypes.value
+  if (types.length === 0) {
+    return '请先选择配置类型'
+  }
+  
+  const examples = []
+  if (types.includes('event')) {
+    examples.push('事件逻辑：当产品名称以bt开头时，单价在失去焦点时乘以10')
+  }
+  if (types.includes('validation')) {
+    examples.push('校验规则：单价必须大于0')
+  }
+  if (types.includes('componentConfig')) {
+    examples.push('配置限制：产品名称最多输入20个字符')
+  }
+  
+  return `例如：${examples.join('；')}`
 }
 
 const nextStep = () => {
@@ -406,6 +430,11 @@ const analyzeIntent = async () => {
     errorMessage.value = '请选择相关字段'
     return
   }
+  
+  if (selectedConfigTypes.value.length === 0) {
+    errorMessage.value = '请选择配置类型'
+    return
+  }
 
   isAnalyzing.value = true
   errorMessage.value = ''
@@ -417,25 +446,28 @@ const analyzeIntent = async () => {
       selectedFields.value.includes(field.fieldName)
     )
 
-    if (useEnhancedMode.value) {
-      // 使用增强分析模式
-      const analysis = await EventGeneratorService.analyzeEnhancedIntent(
-        description.value,
-        selectedFieldsInfo
-      )
-      
-      enhancedIntentAnalysis.value = analysis
-      
-      // 设置推荐的目标字段
+    // 根据选择的配置类型进行分析
+    const analysis = await EventGeneratorService.analyzeSelectiveIntent(
+      description.value,
+      selectedFieldsInfo,
+      selectedConfigTypes.value
+    )
+    
+    enhancedIntentAnalysis.value = analysis
+    
+    // 设置推荐的目标字段
+    if (analysis.eventAnalysis && selectedConfigTypes.value.includes('event')) {
       eventTargetField.value = analysis.eventAnalysis.recommendedTargetField || analysis.eventAnalysis.targetField
-      if (analysis.validationAnalysis?.recommendedTargetField) {
-        validationTargetField.value = analysis.validationAnalysis.recommendedTargetField
-      }
-      if (analysis.componentConfigAnalysis?.recommendedTargetField) {
-        componentConfigTargetField.value = analysis.componentConfigAnalysis.recommendedTargetField
-      }
-      
-      // 为了向后兼容，也设置传统的意图分析结果
+    }
+    if (analysis.validationAnalysis && selectedConfigTypes.value.includes('validation')) {
+      validationTargetField.value = analysis.validationAnalysis.recommendedTargetField || ''
+    }
+    if (analysis.componentConfigAnalysis && selectedConfigTypes.value.includes('componentConfig')) {
+      componentConfigTargetField.value = analysis.componentConfigAnalysis.recommendedTargetField || ''
+    }
+    
+    // 为了向后兼容，如果有事件分析，也设置传统的意图分析结果
+    if (analysis.eventAnalysis) {
       intentAnalysis.value = {
         eventType: analysis.eventAnalysis.eventType,
         condition: analysis.eventAnalysis.condition,
@@ -443,14 +475,6 @@ const analyzeIntent = async () => {
         targetField: analysis.eventAnalysis.targetField,
         sourceField: analysis.eventAnalysis.sourceField
       }
-    } else {
-      // 使用传统分析模式
-      const analysis = await EventGeneratorService.analyzeIntent(
-        description.value,
-        selectedFieldsInfo
-      )
-      
-      intentAnalysis.value = analysis
     }
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '意图分析失败'
@@ -461,7 +485,7 @@ const analyzeIntent = async () => {
 
 // 生成配置
 const generateConfig = async () => {
-  if (!intentAnalysis.value && !enhancedIntentAnalysis.value) {
+  if (!enhancedIntentAnalysis.value) {
     errorMessage.value = '缺少意图分析结果'
     return
   }
@@ -472,76 +496,50 @@ const generateConfig = async () => {
   currentStep.value = 2
 
   try {
-    if (useEnhancedMode.value && enhancedIntentAnalysis.value) {
-      // 使用增强配置生成
-      const config = await EventGeneratorService.generateEnhancedConfig(
-        enhancedIntentAnalysis.value,
-        props.fields
-      )
-      
-      generatedConfig.value = config
-      
-      // 为了向后兼容，如果有事件配置，也设置到generatedEvent
-      if (config.event) {
-        generatedEvent.value = config.event
-      }
-      
-      // 验证事件配置（如果存在）
-      if (config.event) {
-        const validation = EventGeneratorService.validateEventConfig(config.event, props.fields)
-        if (!validation.valid) {
-          validationErrors.value = validation.errors
-        }
-      }
-      
-      if (validationErrors.value.length === 0) {
-        // 生成自然语言描述
-        try {
-          if (config.event) {
-            naturalDescription.value = await EventGeneratorService.generateNaturalDescription(
-              config.event,
-              targetField.value || enhancedIntentAnalysis.value.eventAnalysis.targetField,
-              props.fields
-            )
-          } else {
-            naturalDescription.value = '智能配置已生成'
-          }
-        } catch (error) {
-          console.warn('生成自然语言描述失败:', error)
-          naturalDescription.value = '智能配置已生成'
-        }
-        
-        nextStep() // 自动进入下一步
-      }
-    } else if (intentAnalysis.value) {
-      // 使用传统配置生成
-      const event = await EventGeneratorService.generateEventConfig(
-        intentAnalysis.value,
-        props.fields
-      )
-      
-      // 验证配置
-      const validation = EventGeneratorService.validateEventConfig(event, props.fields)
-      
+    // 使用选择性配置生成
+    const config = await EventGeneratorService.generateSelectiveConfig(
+      enhancedIntentAnalysis.value,
+      props.fields,
+      selectedConfigTypes.value
+    )
+    
+    generatedConfig.value = config
+    
+    // 为了向后兼容，如果有事件配置，也设置到generatedEvent
+    if (config.event) {
+      generatedEvent.value = config.event
+    }
+    
+    // 验证事件配置（如果存在）
+    if (config.event) {
+      const validation = EventGeneratorService.validateEventConfig(config.event, props.fields)
       if (!validation.valid) {
         validationErrors.value = validation.errors
-      } else {
-        generatedEvent.value = event
-        
-        // 生成自然语言描述
-        try {
+      }
+    }
+    
+    if (validationErrors.value.length === 0) {
+      // 生成自然语言描述
+      try {
+        if (config.event) {
           naturalDescription.value = await EventGeneratorService.generateNaturalDescription(
-            event,
-            targetField.value || intentAnalysis.value.targetField,
+            config.event,
+            targetField.value || enhancedIntentAnalysis.value.eventAnalysis?.targetField,
             props.fields
           )
-        } catch (error) {
-          console.warn('生成自然语言描述失败:', error)
-          naturalDescription.value = '智能事件配置已生成'
+        } else {
+          // 根据生成的配置类型生成描述
+          const configTypes = []
+          if (config.validation) configTypes.push('校验规则')
+          if (config.componentConfig) configTypes.push('组件配置')
+          naturalDescription.value = `已生成${configTypes.join('和')}配置`
         }
-        
-        nextStep() // 自动进入下一步
+      } catch (error) {
+        console.warn('生成自然语言描述失败:', error)
+        naturalDescription.value = '智能配置已生成'
       }
+      
+      nextStep() // 自动进入下一步
     }
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '生成配置失败'
