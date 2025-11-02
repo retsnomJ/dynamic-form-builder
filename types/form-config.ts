@@ -48,15 +48,51 @@ export interface FieldEvent {
   type: 'change' | 'focus' | 'blur' | 'input';
   condition?: string; // 触发条件表达式
   actions: EventAction[];
+  description?: string; // 事件描述，用于可视化展示和管理
 }
 
-// 意图分析结果接口
+// 意图分析结果接口 - 增强版本，支持分离的事件、校验和配置分析
 export interface IntentAnalysis {
   eventType: string
   condition?: string
   action: string
   targetField: string
   sourceField?: string
+}
+
+// 增强的意图分析结果接口
+export interface EnhancedIntentAnalysis {
+  // 事件相关分析
+  eventAnalysis: {
+    eventType: string;
+    condition?: string;
+    action: string;
+    targetField: string;
+    sourceField?: string;
+    description: string;
+    recommendedTargetField?: string; // AI推荐的目标字段
+  };
+  
+  // 校验规则分析
+  validationAnalysis?: {
+    hasValidation: boolean;
+    rules: Array<{
+      type: 'required' | 'min' | 'max' | 'pattern' | 'custom';
+      value?: any;
+      message?: string;
+      trigger?: 'blur' | 'change';
+    }>;
+    description: string;
+    recommendedTargetField?: string; // AI推荐的目标字段
+  };
+  
+  // 组件配置分析
+  componentConfigAnalysis?: {
+    hasConfig: boolean;
+    config: Record<string, any>;
+    description: string;
+    recommendedTargetField?: string; // AI推荐的目标字段
+  };
 }
 
 // 字段配置

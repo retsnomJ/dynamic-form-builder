@@ -18,14 +18,25 @@
       <div v-if="currentStep === 0" class="step-content">
         <h4>请描述您需要的事件逻辑并选择相关字段</h4>
         
+        <!-- 模式选择 -->
+        <div class="mode-selection">
+          <label class="section-label">配置模式：</label>
+          <el-radio-group v-model="useEnhancedMode" class="mode-options">
+            <el-radio :label="false">传统模式（仅事件）</el-radio>
+            <el-radio :label="true">增强模式（事件+校验+配置）</el-radio>
+          </el-radio-group>
+        </div>
+        
         <!-- 需求描述部分 -->
         <div class="description-section">
-          <label class="section-label">事件逻辑描述：</label>
+          <label class="section-label">{{ useEnhancedMode ? '智能配置描述：' : '事件逻辑描述：' }}</label>
           <el-input
             v-model="description"
             type="textarea"
             :rows="3"
-            placeholder="例如：当产品名称以bt开头时，单价在失去焦点时乘以10"
+            :placeholder="useEnhancedMode ? 
+              '例如：当产品名称以bt开头时，单价在失去焦点时乘以10，并且单价必须大于0' : 
+              '例如：当产品名称以bt开头时，单价在失去焦点时乘以10'"
             class="description-input"
           />
           <div class="example-actions">
@@ -58,7 +69,7 @@
 
         <div class="step-actions">
           <el-button type="primary" :disabled="!description.trim() || selectedFields.length === 0" @click="analyzeIntent">
-            下一步：分析意图
+            {{ useEnhancedMode ? '下一步：智能分析' : '下一步：分析意图' }}
           </el-button>
         </div>
       </div>
@@ -72,21 +83,61 @@
           </div>
         </div>
         
-        <div v-else-if="intentAnalysis" class="analysis-result">
+        <div v-else-if="intentAnalysis || enhancedIntentAnalysis" class="analysis-result">
           <h5>分析结果：</h5>
-          <div class="analysis-card">
+          
+          <!-- 传统模式分析结果 -->
+          <div v-if="!useEnhancedMode && intentAnalysis" class="analysis-card">
             <p><strong>事件类型：</strong>{{ intentAnalysis.eventType }}</p>
             <p><strong>触发条件：</strong>{{ intentAnalysis.condition || '无' }}</p>
             <p><strong>执行动作：</strong>{{ intentAnalysis.action }}</p>
             <p><strong>目标字段：</strong>{{ intentAnalysis.targetField }}</p>
             <p><strong>源字段：</strong>{{ intentAnalysis.sourceField }}</p>
           </div>
+          
+          <!-- 增强模式分析结果 -->
+           <div v-if="useEnhancedMode && enhancedIntentAnalysis" class="enhanced-analysis-card">
+             <div class="analysis-section">
+               <h6>事件分析：</h6>
+               <div class="analysis-item">
+                 <p><strong>事件类型：</strong>{{ enhancedIntentAnalysis.eventAnalysis.eventType }}</p>
+                 <p><strong>触发条件：</strong>{{ enhancedIntentAnalysis.eventAnalysis.condition || '无' }}</p>
+                 <p><strong>执行动作：</strong>{{ enhancedIntentAnalysis.eventAnalysis.action }}</p>
+                 <p><strong>目标字段：</strong>{{ enhancedIntentAnalysis.eventAnalysis.targetField }}</p>
+                 <p><strong>源字段：</strong>{{ enhancedIntentAnalysis.eventAnalysis.sourceField }}</p>
+               </div>
+             </div>
+             
+             <div v-if="enhancedIntentAnalysis.validationAnalysis" class="analysis-section">
+               <h6>校验分析：</h6>
+               <div class="analysis-item">
+                 <p><strong>校验描述：</strong>{{ enhancedIntentAnalysis.validationAnalysis.description }}</p>
+                 <p><strong>是否有校验：</strong>{{ enhancedIntentAnalysis.validationAnalysis.hasValidation ? '是' : '否' }}</p>
+                 <div v-if="enhancedIntentAnalysis.validationAnalysis.rules.length > 0">
+                   <p><strong>校验规则：</strong></p>
+                   <ul>
+                     <li v-for="rule in enhancedIntentAnalysis.validationAnalysis.rules" :key="rule.type">
+                       {{ rule.type }}: {{ rule.message }}
+                     </li>
+                   </ul>
+                 </div>
+               </div>
+             </div>
+             
+             <div v-if="enhancedIntentAnalysis.componentConfigAnalysis" class="analysis-section">
+               <h6>组件配置分析：</h6>
+               <div class="analysis-item">
+                 <p><strong>配置描述：</strong>{{ enhancedIntentAnalysis.componentConfigAnalysis.description }}</p>
+                 <p><strong>是否有配置：</strong>{{ enhancedIntentAnalysis.componentConfigAnalysis.hasConfig ? '是' : '否' }}</p>
+               </div>
+             </div>
+           </div>
         </div>
 
         <div class="step-actions">
           <el-button @click="prevStep">上一步</el-button>
-          <el-button v-if="intentAnalysis" type="primary" @click="generateConfig">
-            下一步：生成配置
+          <el-button v-if="intentAnalysis || enhancedIntentAnalysis" type="primary" @click="generateConfig">
+            {{ useEnhancedMode ? '下一步：生成智能配置' : '下一步：生成配置' }}
           </el-button>
         </div>
       </div>
@@ -100,10 +151,27 @@
           </div>
         </div>
         
-        <div v-else-if="generatedEvent" class="config-result">
-          <h5>生成的事件配置：</h5>
-          <div class="config-preview">
+        <div v-else-if="generatedEvent || generatedConfig" class="config-result">
+          <h5>{{ useEnhancedMode ? '生成的智能配置：' : '生成的事件配置：' }}</h5>
+          
+          <!-- 传统模式配置预览 -->
+          <div v-if="!useEnhancedMode && generatedEvent" class="config-preview">
             <pre>{{ JSON.stringify(generatedEvent, null, 2) }}</pre>
+          </div>
+          
+          <!-- 增强模式配置预览 -->
+          <div v-if="useEnhancedMode && generatedConfig" class="enhanced-config-preview">
+            <el-tabs type="border-card">
+              <el-tab-pane v-if="generatedConfig.event" label="事件配置">
+                <pre>{{ JSON.stringify(generatedConfig.event, null, 2) }}</pre>
+              </el-tab-pane>
+              <el-tab-pane v-if="generatedConfig.validation" label="校验配置">
+                <pre>{{ JSON.stringify(generatedConfig.validation, null, 2) }}</pre>
+              </el-tab-pane>
+              <el-tab-pane v-if="generatedConfig.componentConfig" label="组件配置">
+                <pre>{{ JSON.stringify(generatedConfig.componentConfig, null, 2) }}</pre>
+              </el-tab-pane>
+            </el-tabs>
           </div>
           
           <!-- 验证错误 -->
@@ -118,7 +186,7 @@
 
         <div class="step-actions">
           <el-button @click="prevStep">上一步</el-button>
-          <el-button v-if="generatedEvent && validationErrors.length === 0" type="primary" @click="nextStep">
+          <el-button v-if="(generatedEvent || generatedConfig) && validationErrors.length === 0" type="primary" @click="nextStep">
             下一步：应用配置
           </el-button>
         </div>
@@ -126,19 +194,82 @@
 
       <!-- 步骤4：应用配置 -->
       <div v-if="currentStep === 3" class="step-content">
-        <h4>选择要应用事件的字段</h4>
-        <el-form-item label="目标字段:">
-          <el-select v-model="targetField" placeholder="选择要应用事件的字段">
-            <el-option
-              v-for="fieldName in selectedFields"
-              :key="fieldName"
-              :label="getFieldLabel(fieldName)"
-              :value="fieldName"
-            />
-          </el-select>
-        </el-form-item>
+        <!-- 传统模式：单一目标字段选择 -->
+        <div v-if="!useEnhancedMode">
+          <h4>选择要应用事件的字段</h4>
+          <el-form-item label="目标字段:">
+            <el-select v-model="targetField" placeholder="选择要应用事件的字段">
+              <el-option
+                v-for="fieldName in selectedFields"
+                :key="fieldName"
+                :label="getFieldLabel(fieldName)"
+                :value="fieldName"
+              />
+            </el-select>
+          </el-form-item>
+        </div>
 
-        <div class="final-preview">
+        <!-- 增强模式：为每个配置项单独选择目标字段 -->
+        <div v-else>
+          <h4>为每个配置项选择目标字段</h4>
+          
+          <!-- 事件配置目标字段 -->
+          <div v-if="generatedConfig?.event" class="config-field-assignment">
+            <h5>事件配置</h5>
+            <el-form-item label="目标字段:">
+              <el-select v-model="eventTargetField" placeholder="选择应用事件配置的字段">
+                <el-option
+                  v-for="fieldName in selectedFields"
+                  :key="fieldName"
+                  :label="getFieldLabel(fieldName)"
+                  :value="fieldName"
+                />
+              </el-select>
+            </el-form-item>
+            <div class="config-preview-mini">
+              <pre>{{ JSON.stringify(generatedConfig.event, null, 2) }}</pre>
+            </div>
+          </div>
+
+          <!-- 校验配置目标字段 -->
+          <div v-if="generatedConfig?.validation" class="config-field-assignment">
+            <h5>校验配置</h5>
+            <el-form-item label="目标字段:">
+              <el-select v-model="validationTargetField" placeholder="选择应用校验配置的字段">
+                <el-option
+                  v-for="fieldName in selectedFields"
+                  :key="fieldName"
+                  :label="getFieldLabel(fieldName)"
+                  :value="fieldName"
+                />
+              </el-select>
+            </el-form-item>
+            <div class="config-preview-mini">
+              <pre>{{ JSON.stringify(generatedConfig.validation, null, 2) }}</pre>
+            </div>
+          </div>
+
+          <!-- 组件配置目标字段 -->
+          <div v-if="generatedConfig?.componentConfig" class="config-field-assignment">
+            <h5>组件配置</h5>
+            <el-form-item label="目标字段:">
+              <el-select v-model="componentConfigTargetField" placeholder="选择应用组件配置的字段">
+                <el-option
+                  v-for="fieldName in selectedFields"
+                  :key="fieldName"
+                  :label="getFieldLabel(fieldName)"
+                  :value="fieldName"
+                />
+              </el-select>
+            </el-form-item>
+            <div class="config-preview-mini">
+              <pre>{{ JSON.stringify(generatedConfig.componentConfig, null, 2) }}</pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- 传统模式的预览 -->
+        <div v-if="!useEnhancedMode" class="final-preview">
           <div class="preview-row">
             <div class="config-section">
               <h5>配置预览：</h5>
@@ -158,8 +289,12 @@
 
         <div class="step-actions">
           <el-button @click="prevStep">上一步</el-button>
-          <el-button type="primary" :disabled="!targetField" @click="applyEvent">
-            应用事件配置
+          <el-button 
+            type="primary" 
+            :disabled="useEnhancedMode ? !canApplyEnhancedConfig() : !targetField" 
+            @click="useEnhancedMode ? applyConfig() : applyEvent()"
+          >
+            {{ useEnhancedMode ? '应用智能配置' : '应用事件配置' }}
           </el-button>
         </div>
       </div>
@@ -173,7 +308,7 @@
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="closeDialog">取消</el-button>
-        <el-button v-if="currentStep === 3 && targetField && generatedEvent" type="success" @click="applyEvent">
+        <el-button v-if="currentStep === 3 && targetField && (generatedEvent || generatedConfig)" type="success" @click="useEnhancedMode ? applyConfig() : applyEvent()">
           完成配置
         </el-button>
       </div>
@@ -185,7 +320,7 @@
 import { ref, computed, watch } from 'vue'
 import { InfoFilled } from '@element-plus/icons-vue'
 import { EventGeneratorService } from '../services/eventGenerator'
-import type { FieldEvent, FieldConfig, IntentAnalysis } from '../../types/form-config'
+import type { FieldEvent, FieldConfig, IntentAnalysis, EnhancedIntentAnalysis } from '../../types/form-config'
 
 interface Props {
   visible: boolean
@@ -196,6 +331,11 @@ interface Props {
 interface Emits {
   (e: 'update:visible', value: boolean): void
   (e: 'apply', event: FieldEvent, fieldName: string): void
+  (e: 'applyEnhanced', config: {
+    event?: { config: FieldEvent; targetField: string }
+    validation?: { config: any; targetField: string }
+    componentConfig?: { config: any; targetField: string }
+  }): void
 }
 
 const props = defineProps<Props>()
@@ -206,13 +346,20 @@ const currentStep = ref(0)
 const description = ref('')
 const selectedFields = ref<string[]>([])
 const intentAnalysis = ref<IntentAnalysis | null>(null)
+const enhancedIntentAnalysis = ref<EnhancedIntentAnalysis | null>(null)
 const generatedEvent = ref<FieldEvent | null>(null)
+const generatedConfig = ref<{ event?: FieldEvent; validation?: any; componentConfig?: any } | null>(null)
 const targetField = ref('')
-const naturalDescription = ref('') // 新增：自然语言描述
+// 新增：为每个配置项单独设置目标字段
+const eventTargetField = ref('')
+const validationTargetField = ref('')
+const componentConfigTargetField = ref('')
+const naturalDescription = ref('') // 自然语言描述
 const isAnalyzing = ref(false)
 const isGenerating = ref(false)
 const validationErrors = ref<string[]>([])
 const errorMessage = ref('')
+const useEnhancedMode = ref(true) // 新增：是否使用增强模式
 
 // 计算属性
 const dialogVisible = computed({
@@ -270,13 +417,41 @@ const analyzeIntent = async () => {
       selectedFields.value.includes(field.fieldName)
     )
 
-    // 调用LLM分析意图
-    const analysis = await EventGeneratorService.analyzeIntent(
-      description.value,
-      selectedFieldsInfo
-    )
-    
-    intentAnalysis.value = analysis
+    if (useEnhancedMode.value) {
+      // 使用增强分析模式
+      const analysis = await EventGeneratorService.analyzeEnhancedIntent(
+        description.value,
+        selectedFieldsInfo
+      )
+      
+      enhancedIntentAnalysis.value = analysis
+      
+      // 设置推荐的目标字段
+      eventTargetField.value = analysis.eventAnalysis.recommendedTargetField || analysis.eventAnalysis.targetField
+      if (analysis.validationAnalysis?.recommendedTargetField) {
+        validationTargetField.value = analysis.validationAnalysis.recommendedTargetField
+      }
+      if (analysis.componentConfigAnalysis?.recommendedTargetField) {
+        componentConfigTargetField.value = analysis.componentConfigAnalysis.recommendedTargetField
+      }
+      
+      // 为了向后兼容，也设置传统的意图分析结果
+      intentAnalysis.value = {
+        eventType: analysis.eventAnalysis.eventType,
+        condition: analysis.eventAnalysis.condition,
+        action: analysis.eventAnalysis.action,
+        targetField: analysis.eventAnalysis.targetField,
+        sourceField: analysis.eventAnalysis.sourceField
+      }
+    } else {
+      // 使用传统分析模式
+      const analysis = await EventGeneratorService.analyzeIntent(
+        description.value,
+        selectedFieldsInfo
+      )
+      
+      intentAnalysis.value = analysis
+    }
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '意图分析失败'
   } finally {
@@ -286,7 +461,7 @@ const analyzeIntent = async () => {
 
 // 生成配置
 const generateConfig = async () => {
-  if (!intentAnalysis.value) {
+  if (!intentAnalysis.value && !enhancedIntentAnalysis.value) {
     errorMessage.value = '缺少意图分析结果'
     return
   }
@@ -297,36 +472,79 @@ const generateConfig = async () => {
   currentStep.value = 2
 
   try {
-    // 基于意图分析结果生成具体配置
-    const event = await EventGeneratorService.generateEventConfig(
-      intentAnalysis.value,
-      props.fields
-    )
-    
-    // 验证配置
-    const validation = EventGeneratorService.validateEventConfig(event, props.fields)
-    
-    if (!validation.valid) {
-      validationErrors.value = validation.errors
-    } else {
-      generatedEvent.value = event
+    if (useEnhancedMode.value && enhancedIntentAnalysis.value) {
+      // 使用增强配置生成
+      const config = await EventGeneratorService.generateEnhancedConfig(
+        enhancedIntentAnalysis.value,
+        props.fields
+      )
       
-      // 生成自然语言描述
-      try {
-        naturalDescription.value = await EventGeneratorService.generateNaturalDescription(
-          event,
-          targetField.value || intentAnalysis.value.targetField,
-          props.fields
-        )
-      } catch (error) {
-        console.warn('生成自然语言描述失败:', error)
-        naturalDescription.value = '智能事件配置已生成'
+      generatedConfig.value = config
+      
+      // 为了向后兼容，如果有事件配置，也设置到generatedEvent
+      if (config.event) {
+        generatedEvent.value = config.event
       }
       
-      nextStep() // 自动进入下一步
+      // 验证事件配置（如果存在）
+      if (config.event) {
+        const validation = EventGeneratorService.validateEventConfig(config.event, props.fields)
+        if (!validation.valid) {
+          validationErrors.value = validation.errors
+        }
+      }
+      
+      if (validationErrors.value.length === 0) {
+        // 生成自然语言描述
+        try {
+          if (config.event) {
+            naturalDescription.value = await EventGeneratorService.generateNaturalDescription(
+              config.event,
+              targetField.value || enhancedIntentAnalysis.value.eventAnalysis.targetField,
+              props.fields
+            )
+          } else {
+            naturalDescription.value = '智能配置已生成'
+          }
+        } catch (error) {
+          console.warn('生成自然语言描述失败:', error)
+          naturalDescription.value = '智能配置已生成'
+        }
+        
+        nextStep() // 自动进入下一步
+      }
+    } else if (intentAnalysis.value) {
+      // 使用传统配置生成
+      const event = await EventGeneratorService.generateEventConfig(
+        intentAnalysis.value,
+        props.fields
+      )
+      
+      // 验证配置
+      const validation = EventGeneratorService.validateEventConfig(event, props.fields)
+      
+      if (!validation.valid) {
+        validationErrors.value = validation.errors
+      } else {
+        generatedEvent.value = event
+        
+        // 生成自然语言描述
+        try {
+          naturalDescription.value = await EventGeneratorService.generateNaturalDescription(
+            event,
+            targetField.value || intentAnalysis.value.targetField,
+            props.fields
+          )
+        } catch (error) {
+          console.warn('生成自然语言描述失败:', error)
+          naturalDescription.value = '智能事件配置已生成'
+        }
+        
+        nextStep() // 自动进入下一步
+      }
     }
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '生成事件配置失败'
+    errorMessage.value = error instanceof Error ? error.message : '生成配置失败'
   } finally {
     isGenerating.value = false
   }
@@ -337,6 +555,61 @@ const applyEvent = () => {
     emit('apply', generatedEvent.value, targetField.value)
     closeDialog()
   }
+}
+
+// 检查是否可以应用增强配置
+const canApplyEnhancedConfig = () => {
+  if (!generatedConfig.value) return false
+  
+  // 检查每个配置项是否都有对应的目标字段
+  if (generatedConfig.value.event && !eventTargetField.value) return false
+  if (generatedConfig.value.validation && !validationTargetField.value) return false
+  if (generatedConfig.value.componentConfig && !componentConfigTargetField.value) return false
+  
+  return true
+}
+
+// 应用配置
+const applyConfig = () => {
+  if (useEnhancedMode.value && generatedConfig.value) {
+    // 应用增强配置，传递每个配置项的目标字段
+    const configWithTargets = {
+      event: generatedConfig.value.event ? {
+        config: generatedConfig.value.event,
+        targetField: eventTargetField.value
+      } : undefined,
+      validation: generatedConfig.value.validation ? {
+        config: generatedConfig.value.validation,
+        targetField: validationTargetField.value
+      } : undefined,
+      componentConfig: generatedConfig.value.componentConfig ? {
+        config: generatedConfig.value.componentConfig,
+        targetField: componentConfigTargetField.value
+      } : undefined
+    }
+    
+    emit('applyEnhanced', configWithTargets)
+  } else if (generatedEvent.value && targetField.value) {
+    // 应用传统事件配置
+    emit('apply', generatedEvent.value, targetField.value)
+  }
+  
+  closeDialog()
+}
+
+// 重置状态
+const resetState = () => {
+  description.value = ''
+  selectedFields.value = []
+  intentAnalysis.value = null
+  enhancedIntentAnalysis.value = null
+  generatedEvent.value = null
+  generatedConfig.value = null
+  naturalDescription.value = ''
+  errorMessage.value = ''
+  validationErrors.value = []
+  currentStep.value = 0
+  targetField.value = ''
 }
 
 const closeDialog = () => {
@@ -380,6 +653,26 @@ watch(() => props.visible, (newVal) => {
   padding: 20px 0;
 }
 
+.steps-indicator {
+  margin-bottom: 30px;
+}
+
+.step-content {
+  min-height: 300px;
+}
+
+.mode-selection {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f5f7fa;
+  border-radius: 8px;
+  border: 1px solid #e4e7ed;
+}
+
+.mode-options {
+  margin-top: 10px;
+}
+
 .input-section {
   margin-bottom: 24px;
 }
@@ -421,6 +714,16 @@ watch(() => props.visible, (newVal) => {
   border-radius: 4px;
 }
 
+.field-checkbox {
+  margin-bottom: 8px;
+}
+
+.field-info {
+  display: flex;
+  flex-direction: column;
+  margin-left: 8px;
+}
+
 .field-item {
   display: flex;
   flex-direction: column;
@@ -444,6 +747,74 @@ watch(() => props.visible, (newVal) => {
   font-size: 12px;
   color: #409eff;
   font-weight: 500;
+}
+
+.analyzing-content {
+  margin-top: 20px;
+}
+
+.generating-content {
+  margin-top: 20px;
+}
+
+.analysis-result {
+  margin-top: 20px;
+}
+
+.analysis-card {
+  background-color: #f0f9ff;
+  border: 1px solid #b3d8ff;
+  border-radius: 8px;
+  padding: 15px;
+  margin-top: 10px;
+}
+
+.enhanced-analysis-card {
+  background-color: #f0f9ff;
+  border: 1px solid #b3d8ff;
+  border-radius: 8px;
+  padding: 15px;
+  margin-top: 10px;
+}
+
+.analysis-section {
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.analysis-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.analysis-section h6 {
+  color: #409eff;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.analysis-item {
+  background-color: white;
+  padding: 10px;
+  border-radius: 4px;
+  border-left: 3px solid #409eff;
+}
+
+.analysis-item p {
+  margin: 5px 0;
+  font-size: 13px;
+}
+
+.analysis-item ul {
+  margin: 5px 0 5px 20px;
+  font-size: 13px;
+}
+
+.config-result {
+  margin-top: 20px;
 }
 
 .preview-section {
@@ -470,6 +841,18 @@ watch(() => props.visible, (newVal) => {
   font-size: 12px;
   line-height: 1.5;
   color: #303133;
+}
+
+.enhanced-config-preview {
+  margin-top: 10px;
+}
+
+.enhanced-config-preview pre {
+  background-color: #f5f7fa;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  overflow-x: auto;
 }
 
 .validation-errors {
@@ -507,6 +890,14 @@ watch(() => props.visible, (newVal) => {
   gap: 12px;
 }
 
+.step-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #e4e7ed;
+}
+
 /* 新增样式：合并步骤的布局 */
 .description-section {
   margin-bottom: 24px;
@@ -531,6 +922,10 @@ watch(() => props.visible, (newVal) => {
 
 .field-selection-section .section-label {
   margin-bottom: 12px;
+}
+
+.final-preview {
+  margin-top: 20px;
 }
 
 /* 最终预览布局样式 */
@@ -589,5 +984,38 @@ watch(() => props.visible, (newVal) => {
   .description-section {
     flex: none;
   }
+}
+
+/* 新增：配置项字段分配样式 */
+.config-field-assignment {
+  margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.config-field-assignment h5 {
+  margin: 0 0 12px 0;
+  color: #303133;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.config-preview-mini {
+  margin-top: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.config-preview-mini pre {
+  background: #f5f7fa;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #606266;
+  margin: 0;
 }
 </style>

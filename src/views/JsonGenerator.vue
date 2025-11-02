@@ -72,6 +72,44 @@
               </template>
             </el-table-column>
 
+            <!-- 新增事件配置列 -->
+            <el-table-column label="事件配置" width="200">
+              <template #default="{ row, $index }">
+                <div class="events-display">
+                  <div v-if="row.events && row.events.length > 0" class="events-list">
+                    <el-tooltip 
+                      v-for="(event, eventIndex) in row.events" 
+                      :key="eventIndex"
+                      :content="event.description || `${event.type}事件`"
+                      placement="top"
+                      :disabled="!event.description || event.description.length <= 10"
+                    >
+                      <el-tag 
+                        size="small"
+                        :type="getEventTagType(event.type)"
+                        closable
+                        @close="removeEvent($index, eventIndex)"
+                        class="event-tag"
+                        @click="editEvent($index, eventIndex)"
+                      >
+                        {{ event.description || `${event.type}事件` }}
+                      </el-tag>
+                    </el-tooltip>
+                  </div>
+                  <div class="events-actions">
+                    <el-button 
+                      type="text" 
+                      size="small" 
+                      @click="addNewEvent($index)"
+                      style="color: #409eff; padding: 2px 4px;"
+                    >
+                      + 添加事件
+                    </el-button>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+
             <el-table-column label="操作" width="160" fixed="right">
               <template #default="{ $index }">
                 <div class="action-buttons">
@@ -250,7 +288,9 @@
       v-model:visible="eventConfigVisible"
       :fields="fields"
       :target-field-name="currentFieldIndex >= 0 ? fields[currentFieldIndex]?.fieldName : undefined"
+      :current-event="getCurrentEvent()"
       @apply="applyEventToField"
+      @applyEnhanced="applyEnhancedConfigToField"
     />
   </div>
 </template>
@@ -357,7 +397,7 @@ const loadFromStorage = (): EditableFieldConfig[] => {
     console.warn('从localStorage加载数据失败:', error)
   }
   
-  // 返回默认数据
+  // 返回默认数据，包含示例事件
   return [
     {
       fieldName: "product",
@@ -366,7 +406,19 @@ const loadFromStorage = (): EditableFieldConfig[] => {
       required: false,
       disabled: false,
       componentConfig: {},
-      events: [],
+      events: [
+        {
+          type: "change",
+          description: "产品变更时清空价格",
+          actions: [
+            {
+              type: "setValue",
+              targetField: "price",
+              value: ""
+            }
+          ]
+        }
+      ],
       validation: {
         rules: []
       }
@@ -465,22 +517,154 @@ const applyEventToField = (event: FieldEvent, fieldName: string) => {
       console.log('🆕 初始化字段events数组')
     }
     
-    // 添加新事件或替换同类型事件
-    const existingEventIndex = fields.value[fieldIndex].events!.findIndex(e => e.type === event.type)
-    console.log('🔍 现有事件索引:', existingEventIndex)
+    // 为事件添加description字段（如果没有的话）
+    const eventWithDescription = {
+      ...event,
+      description: event.description || `${event.type}事件`
+    }
     
-    if (existingEventIndex !== -1) {
-      fields.value[fieldIndex].events![existingEventIndex] = event
-      console.log('🔄 替换现有事件')
+    // 如果是编辑现有事件
+    if (currentEventIndex.value >= 0 && currentEventIndex.value < fields.value[fieldIndex].events!.length) {
+      fields.value[fieldIndex].events![currentEventIndex.value] = eventWithDescription
+      console.log('🔄 更新现有事件')
+      ElMessage.success('事件已更新')
     } else {
-      fields.value[fieldIndex].events!.push(event)
-      console.log('➕ 添加新事件')
+      // 添加新事件或替换同类型事件
+      const existingEventIndex = fields.value[fieldIndex].events!.findIndex(e => e.type === event.type)
+      console.log('🔍 现有事件索引:', existingEventIndex)
+      
+      if (existingEventIndex !== -1) {
+        fields.value[fieldIndex].events![existingEventIndex] = eventWithDescription
+        console.log('🔄 替换现有事件')
+        ElMessage.success('同类型事件已替换')
+      } else {
+        fields.value[fieldIndex].events!.push(eventWithDescription)
+        console.log('➕ 添加新事件')
+        ElMessage.success('事件已添加')
+      }
     }
     
     console.log('✅ 更新后的字段:', fields.value[fieldIndex])
   } else {
     console.error('❌ 未找到目标字段:', fieldName)
   }
+  
+  // 重置当前事件索引
+  currentEventIndex.value = -1
+  console.groupEnd()
+}
+
+// 应用增强配置到字段
+const applyEnhancedConfigToField = (configWithTargets: {
+  event?: { config: FieldEvent; targetField: string }
+  validation?: { config: any; targetField: string }
+  componentConfig?: { config: any; targetField: string }
+}) => {
+  console.group('🚀 应用增强配置到字段')
+  console.log('⚙️ 增强配置:', configWithTargets)
+  
+  const appliedConfigs = []
+  
+  // 应用事件配置
+  if (configWithTargets.event) {
+    const { config: eventConfig, targetField } = configWithTargets.event
+    console.log('🎯 应用事件配置到字段:', targetField)
+    
+    const fieldIndex = fields.value.findIndex(f => f.fieldName === targetField)
+    if (fieldIndex !== -1) {
+      const field = fields.value[fieldIndex]
+      
+      if (!field.events) {
+        field.events = []
+        console.log('🆕 初始化字段events数组')
+      }
+      
+      const eventWithDescription = {
+        ...eventConfig,
+        description: eventConfig.description || `${eventConfig.type}事件`
+      }
+      
+      // 添加新事件或替换同类型事件
+      const existingEventIndex = field.events.findIndex(e => e.type === eventConfig.type)
+      
+      if (existingEventIndex !== -1) {
+        field.events[existingEventIndex] = eventWithDescription
+        console.log('🔄 替换现有事件')
+      } else {
+        field.events.push(eventWithDescription)
+        console.log('➕ 添加新事件')
+      }
+      
+      appliedConfigs.push(`事件(${targetField})`)
+    }
+  }
+  
+  // 应用校验配置
+  if (configWithTargets.validation) {
+    const { config: validationConfig, targetField } = configWithTargets.validation
+    console.log('🎯 应用校验配置到字段:', targetField)
+    
+    const fieldIndex = fields.value.findIndex(f => f.fieldName === targetField)
+    if (fieldIndex !== -1) {
+      const field = fields.value[fieldIndex]
+      
+      if (!field.validation) {
+        field.validation = { rules: [] }
+      }
+      
+      if (!field.validation.rules) {
+        field.validation.rules = []
+      }
+      
+      // 合并校验规则
+      if (validationConfig.rules && Array.isArray(validationConfig.rules)) {
+        validationConfig.rules.forEach((newRule: any) => {
+          const existingRuleIndex = field.validation!.rules!.findIndex(
+            (rule: any) => rule.type === newRule.type || (rule.required && newRule.required)
+          )
+          
+          if (existingRuleIndex !== -1) {
+            field.validation!.rules![existingRuleIndex] = newRule
+            console.log('🔄 替换现有校验规则:', newRule.type || 'required')
+          } else {
+            field.validation!.rules!.push(newRule)
+            console.log('➕ 添加新校验规则:', newRule.type || 'required')
+          }
+        })
+      }
+      
+      appliedConfigs.push(`校验(${targetField})`)
+    }
+  }
+  
+  // 应用组件配置
+  if (configWithTargets.componentConfig) {
+    const { config: componentConfig, targetField } = configWithTargets.componentConfig
+    console.log('🎯 应用组件配置到字段:', targetField)
+    
+    const fieldIndex = fields.value.findIndex(f => f.fieldName === targetField)
+    if (fieldIndex !== -1) {
+      const field = fields.value[fieldIndex]
+      
+      if (!field.componentConfig) {
+        field.componentConfig = {}
+      }
+      
+      // 合并组件配置
+      Object.assign(field.componentConfig, componentConfig)
+      console.log('⚙️ 更新组件配置:', field.componentConfig)
+      
+      appliedConfigs.push(`组件配置(${targetField})`)
+    }
+  }
+  
+  // 显示成功消息
+  if (appliedConfigs.length > 0) {
+    ElMessage.success(`已应用: ${appliedConfigs.join(', ')}`)
+  }
+  
+  // 重置当前事件索引
+  currentEventIndex.value = -1
   console.groupEnd()
 }
 
@@ -497,6 +681,55 @@ const validateFieldName = (index: number) => {
   if (duplicateIndex !== -1) {
     field.fieldName = `${field.fieldName}_${index + 1}`
   }
+}
+
+// 获取事件标签类型
+const getEventTagType = (eventType: string) => {
+  const typeMap: Record<string, string> = {
+    'change': 'primary',
+    'click': 'success',
+    'focus': 'info',
+    'blur': 'warning',
+    'input': 'danger'
+  }
+  return typeMap[eventType] || 'default'
+}
+
+// 删除事件
+const removeEvent = (fieldIndex: number, eventIndex: number) => {
+  const field = fields.value[fieldIndex]
+  if (field.events && field.events.length > eventIndex) {
+    field.events.splice(eventIndex, 1)
+    ElMessage.success('事件已删除')
+  }
+}
+
+// 编辑事件
+const editEvent = (fieldIndex: number, eventIndex: number) => {
+  currentFieldIndex.value = fieldIndex
+  currentEventIndex.value = eventIndex
+  eventConfigVisible.value = true
+}
+
+// 添加新事件
+const addNewEvent = (fieldIndex: number) => {
+  currentFieldIndex.value = fieldIndex
+  currentEventIndex.value = -1 // -1 表示新增事件
+  eventConfigVisible.value = true
+}
+
+// 当前编辑的事件索引
+const currentEventIndex = ref(-1)
+
+// 获取当前编辑的事件
+const getCurrentEvent = () => {
+  if (currentFieldIndex.value >= 0 && currentEventIndex.value >= 0) {
+    const field = fields.value[currentFieldIndex.value]
+    if (field.events && field.events.length > currentEventIndex.value) {
+      return field.events[currentEventIndex.value]
+    }
+  }
+  return null
 }
 
 // 判断是否需要数据源（现在所有字段类型都支持数据源）
@@ -701,8 +934,15 @@ const formattedJson = computed(() => {
       
       if (field.dataSource) result.dataSource = field.dataSource
       
-      // 始终包含events和validation，即使为空
-      result.events = field.events || []
+      // 处理events，保留所有字段包括description
+      if (field.events && field.events.length > 0) {
+        result.events = field.events.map(event => ({
+          ...event
+        }))
+      } else {
+        result.events = []
+      }
+      
       result.validation = field.validation || { rules: [] }
       
       return result
@@ -982,5 +1222,52 @@ addField()
     width: 100%;
     min-height: 400px;
   }
+}
+
+/* 事件配置列样式 */
+.events-display {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 40px;
+}
+
+.events-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.events-list .event-tag {
+  max-width: 120px;
+  margin: 2px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.events-list .event-tag .el-tag__content {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.events-list .event-tag .el-tag__close {
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.events-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.events-actions .el-button {
+  font-size: 11px;
+  height: 20px;
+  line-height: 1;
 }
 </style>
