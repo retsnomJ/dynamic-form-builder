@@ -117,6 +117,131 @@ const CONFIG_GENERATION_PROMPT_TEMPLATE = `你是一个表单事件配置代码�
 
 请只返回JSON配置，不要其他内容。`
 
+// 校验配置生成提示词模板
+const VALIDATION_GENERATION_PROMPT_TEMPLATE = `你是一个表单校验规则专家。基于意图分析结果，生成具体的校验配置代码。
+
+校验分析结果：
+- 校验描述: {description}
+- 校验规则: {rules}
+- 目标字段: {targetField}
+
+所有字段信息：
+{fieldsInfo}
+
+请生成符合以下格式的校验配置JSON：
+{
+  "rules": [
+    {
+      "required": true/false,
+      "message": "错误提示信息",
+      "trigger": "触发时机(blur/change/submit)",
+      "type": "校验类型(string/number/date/email/url/pattern等)",
+      "min": "最小值/长度(可选)",
+      "max": "最大值/长度(可选)",
+      "pattern": "正则表达式(可选)",
+      "validator": "自定义校验函数(可选)",
+      "description": "校验规则的简洁描述（10个字以内）"
+    }
+  ]
+}
+
+校验规则类型说明：
+1. **required**: 必填校验
+2. **min/max**: 长度或数值范围校验
+3. **pattern**: 正则表达式校验
+4. **type**: 数据类型校验 (string/number/integer/float/date/email/url)
+5. **validator**: 自定义校验函数
+
+常用校验示例：
+- 必填: {"required": true, "message": "此字段为必填项", "trigger": "blur", "description": "必填校验"}
+- 邮箱: {"type": "email", "message": "请输入正确的邮箱格式", "trigger": "blur", "description": "邮箱格式"}
+- 手机: {"pattern": "^1[3-9]\\d{9}$", "message": "请输入正确的手机号", "trigger": "blur", "description": "手机号格式"}
+- 长度: {"min": 6, "max": 20, "message": "长度应在6-20个字符之间", "trigger": "blur", "description": "长度限制"}
+- 数值范围: {"type": "number", "min": 0, "max": 100, "message": "数值应在0-100之间", "trigger": "change", "description": "数值范围"}
+
+注意事项：
+1. 根据字段类型选择合适的校验规则
+2. 提供清晰易懂的错误提示信息
+3. 选择合适的触发时机 (blur适合格式校验，change适合实时校验)
+4. 可以组合多个校验规则
+5. 自定义校验函数应该返回Promise<void>或boolean
+6. 每个校验规则必须包含description字段，用于可视化标签显示
+
+请只返回JSON配置，不要其他内容。`
+
+// 组件配置生成提示词模板
+const COMPONENT_CONFIG_GENERATION_PROMPT_TEMPLATE = `你是一个表单组件配置专家。基于意图分析结果，生成具体的组件配置代码。
+
+组件配置分析结果：
+- 配置描述: {description}
+- 基础配置: {config}
+- 目标字段: {targetField}
+- 字段类型: {fieldType}
+
+所有字段信息：
+{fieldsInfo}
+
+请生成符合以下格式的组件配置JSON：
+{
+  "placeholder": "占位符文本",
+  "clearable": true/false,
+  "disabled": true/false,
+  "readonly": true/false,
+  "size": "large/default/small",
+  "maxlength": 数字,
+  "showWordLimit": true/false,
+  "prefixIcon": "图标名称",
+  "suffixIcon": "图标名称",
+  "其他特定配置": "配置值"
+}
+
+不同字段类型的特定配置：
+
+**输入框 (input/textarea)**:
+- placeholder: 占位符
+- clearable: 是否显示清空按钮
+- maxlength: 最大输入长度
+- showWordLimit: 是否显示字数统计
+- prefixIcon/suffixIcon: 前缀/后缀图标
+
+**选择器 (select)**:
+- placeholder: 占位符
+- clearable: 是否可清空
+- filterable: 是否可搜索
+- multiple: 是否多选
+- collapseTags: 多选时是否折叠标签
+- multipleLimit: 多选数量限制
+
+**数字输入框 (number)**:
+- min: 最小值
+- max: 最大值
+- step: 步长
+- precision: 精度
+- controls: 是否显示控制按钮
+- controlsPosition: 控制按钮位置
+
+**日期选择器 (date)**:
+- format: 显示格式
+- valueFormat: 绑定值格式
+- placeholder: 占位符
+- clearable: 是否可清空
+- editable: 是否可输入
+
+**开关 (switch)**:
+- activeText: 打开时的文字描述
+- inactiveText: 关闭时的文字描述
+- activeValue: 打开时的值
+- inactiveValue: 关闭时的值
+
+配置原则：
+1. 根据字段类型提供合适的配置
+2. 提升用户体验和易用性
+3. 保持界面一致性
+4. 考虑无障碍访问
+5. 提供合理的默认值
+
+请只返回JSON配置，不要其他内容。`
+
 // 自然语言描述生成提示词模板
 const DESCRIPTION_GENERATION_PROMPT_TEMPLATE = `你是一个技术文档专家。请将事件配置转换为易懂的自然语言描述。
 
@@ -212,6 +337,23 @@ export class EventGeneratorService {
     }
   }
 
+  private static async generateComponentConfig(componentConfigAnalysis: NonNullable<EnhancedIntentAnalysis['componentConfigAnalysis']>, allFields: FieldConfig[]): Promise<any> {
+    try {
+      console.log('🔧 生成组件配置 - 使用LLM')
+      
+      const prompt = this.buildComponentConfigGenerationPrompt(componentConfigAnalysis, allFields)
+      const response = await this.callLLMAPI(prompt)
+      const componentConfig = this.parseComponentConfig(response)
+      
+      console.log('✅ LLM生成的组件配置:', componentConfig)
+      return componentConfig
+    } catch (error) {
+      console.warn('⚠️ LLM生成组件配置失败，使用原始配置:', error)
+      // 回退到原始逻辑
+      return componentConfigAnalysis.config || {}
+    }
+  }
+
   /**
    * 增强的意图分析 - 分离事件、校验和配置
    */
@@ -294,12 +436,12 @@ export class EventGeneratorService {
       
       // 生成校验配置
       if (enhancedAnalysis.validationAnalysis?.hasValidation) {
-        result.validation = this.generateValidationConfig(enhancedAnalysis.validationAnalysis)
+        result.validation = await this.generateValidationConfig(enhancedAnalysis.validationAnalysis, allFields)
       }
       
       // 生成组件配置
       if (enhancedAnalysis.componentConfigAnalysis?.hasConfig) {
-        result.componentConfig = enhancedAnalysis.componentConfigAnalysis.config
+        result.componentConfig = await this.generateComponentConfig(enhancedAnalysis.componentConfigAnalysis, allFields)
       }
       
       console.log('✅ 生成的增强配置:', result)
@@ -316,39 +458,65 @@ export class EventGeneratorService {
   /**
    * 生成校验配置
    */
-  private static generateValidationConfig(validationAnalysis: NonNullable<EnhancedIntentAnalysis['validationAnalysis']>): any {
-    const rules = validationAnalysis.rules.map(rule => {
-      const validationRule: any = {
-        trigger: rule.trigger || 'blur'
-      }
-      
-      switch (rule.type) {
-        case 'required':
-          validationRule.required = true
-          validationRule.message = rule.message || '此字段为必填项'
-          break
-        case 'min':
-          validationRule.min = rule.value
-          validationRule.message = rule.message || `最小长度为 ${rule.value}`
-          break
-        case 'max':
-          validationRule.max = rule.value
-          validationRule.message = rule.message || `最大长度为 ${rule.value}`
-          break
-        case 'pattern':
-          validationRule.pattern = rule.value
-          validationRule.message = rule.message || '格式不正确'
-          break
-        case 'custom':
-          validationRule.validator = rule.value
-          validationRule.message = rule.message || '验证失败'
-          break
-      }
-      
-      return validationRule
-    })
+  private static async generateValidationConfig(validationAnalysis: NonNullable<EnhancedIntentAnalysis['validationAnalysis']>, allFields: FieldConfig[]): Promise<any> {
+    console.group('🔍 生成校验配置')
+    console.log('📋 校验分析结果:', validationAnalysis)
     
-    return { rules }
+    try {
+      const prompt = this.buildValidationGenerationPrompt(validationAnalysis, allFields)
+      console.log('📝 校验生成提示词:', prompt)
+      
+      const response = await this.callLLMAPI(prompt)
+      console.log('🤖 LLM响应:', response)
+      
+      const validationConfig = this.parseValidationConfig(response)
+      console.log('✅ 解析的校验配置:', validationConfig)
+      console.groupEnd()
+      
+      return validationConfig
+    } catch (error) {
+      console.error('❌ 校验配置生成失败:', error)
+      console.groupEnd()
+      
+      // 降级到原有的硬编码逻辑
+      const rules = validationAnalysis.rules.map(rule => {
+        const validationRule: any = {
+          trigger: rule.trigger || 'blur'
+        }
+        
+        switch (rule.type) {
+          case 'required':
+            validationRule.required = true
+            validationRule.message = rule.message || '此字段为必填项'
+            validationRule.description = '必填校验'
+            break
+          case 'min':
+            validationRule.min = rule.value
+            validationRule.message = rule.message || `最小长度为 ${rule.value}`
+            validationRule.description = '最小长度'
+            break
+          case 'max':
+            validationRule.max = rule.value
+            validationRule.message = rule.message || `最大长度为 ${rule.value}`
+            validationRule.description = '最大长度'
+            break
+          case 'pattern':
+            validationRule.pattern = rule.value
+            validationRule.message = rule.message || '格式不正确'
+            validationRule.description = '格式校验'
+            break
+          case 'custom':
+            validationRule.validator = rule.value
+            validationRule.message = rule.message || '验证失败'
+            validationRule.description = '自定义校验'
+            break
+        }
+        
+        return validationRule
+      })
+      
+      return { rules }
+    }
   }
   static async generateEventConfig(intentAnalysis: IntentAnalysis, allFields: FieldConfig[]): Promise<FieldEvent> {
     console.group('⚙️ 步骤2：生成事件配置')
@@ -522,6 +690,46 @@ export class EventGeneratorService {
       .replace('{action}', intentAnalysis.action)
       .replace('{targetField}', intentAnalysis.targetField)
       .replace('{sourceField}', intentAnalysis.sourceField || '无')
+      .replace('{fieldsInfo}', fieldsInfo)
+  }
+
+  /**
+   * 构建校验配置生成提示词
+   */
+  private static buildValidationGenerationPrompt(validationAnalysis: NonNullable<EnhancedIntentAnalysis['validationAnalysis']>, allFields: FieldConfig[]): string {
+    const fieldsInfo = allFields.map(field => 
+      `- ${field.fieldName} (${field.fieldLabel}): ${field.fieldType}`
+    ).join('\n')
+
+    const rulesInfo = validationAnalysis.rules.map(rule => 
+      `${rule.type}: ${rule.message || ''} (触发: ${rule.trigger || 'blur'})`
+    ).join(', ')
+
+    return VALIDATION_GENERATION_PROMPT_TEMPLATE
+      .replace('{description}', validationAnalysis.description || '校验规则')
+      .replace('{rules}', rulesInfo)
+      .replace('{targetField}', validationAnalysis.recommendedTargetField || '未指定')
+      .replace('{fieldsInfo}', fieldsInfo)
+  }
+
+  /**
+   * 构建组件配置生成提示词
+   */
+  private static buildComponentConfigGenerationPrompt(componentConfigAnalysis: NonNullable<EnhancedIntentAnalysis['componentConfigAnalysis']>, allFields: FieldConfig[]): string {
+    const fieldsInfo = allFields.map(field => 
+      `- ${field.fieldName} (${field.fieldLabel}): ${field.fieldType}`
+    ).join('\n')
+
+    // 找到目标字段的类型
+    const targetField = componentConfigAnalysis.recommendedTargetField || ''
+    const targetFieldInfo = allFields.find(f => f.fieldName === targetField)
+    const fieldType = targetFieldInfo?.fieldType || 'unknown'
+
+    return COMPONENT_CONFIG_GENERATION_PROMPT_TEMPLATE
+      .replace('{description}', componentConfigAnalysis.description || '组件配置')
+      .replace('{config}', JSON.stringify(componentConfigAnalysis.config, null, 2))
+      .replace('{targetField}', targetField)
+      .replace('{fieldType}', fieldType)
       .replace('{fieldsInfo}', fieldsInfo)
   }
 
@@ -756,6 +964,81 @@ export class EventGeneratorService {
       console.error('❌ 解析失败:', error)
       console.groupEnd()
       throw new Error(`解析事件配置失败: ${error instanceof Error ? error.message : '未知错误'}`)
+    }
+  }
+
+  /**
+   * 解析校验配置
+   */
+  private static parseValidationConfig(response: string): any {
+    console.group('🔧 解析校验配置')
+    console.log('📄 原始响应:', response)
+    
+    try {
+      // 提取JSON部分
+      const jsonMatch = response.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        console.error('❌ 响应中未找到有效的JSON')
+        throw new Error('响应中未找到有效的JSON')
+      }
+
+      console.log('📋 提取的JSON:', jsonMatch[0])
+      const parsed = JSON.parse(jsonMatch[0])
+      console.log('✅ 解析后的对象:', parsed)
+      
+      // 验证必需字段
+      if (!parsed.rules || !Array.isArray(parsed.rules)) {
+        console.error('❌ 校验配置格式错误:', parsed)
+        throw new Error('校验配置格式错误')
+      }
+
+      const result = {
+        rules: parsed.rules
+      }
+      
+      console.log('⚙️ 最终校验配置:', result)
+      console.groupEnd()
+      
+      return result
+    } catch (error) {
+      console.error('❌ 解析失败:', error)
+      console.groupEnd()
+      throw new Error('校验配置解析失败')
+    }
+  }
+
+  /**
+   * 解析组件配置
+   */
+  private static parseComponentConfig(response: string): any {
+    console.group('🔧 解析组件配置')
+    console.log('📄 原始响应:', response)
+    
+    try {
+      // 提取JSON部分
+      const jsonMatch = response.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        console.error('❌ 响应中未找到有效的JSON')
+        throw new Error('响应中未找到有效的JSON')
+      }
+
+      console.log('📋 提取的JSON:', jsonMatch[0])
+      const parsed = JSON.parse(jsonMatch[0])
+      console.log('✅ 解析后的对象:', parsed)
+      
+      // 组件配置可以是任意结构，只需要是有效的对象
+      if (typeof parsed !== 'object' || parsed === null) {
+        console.error('❌ 组件配置格式错误:', parsed)
+        throw new Error('组件配置格式错误')
+      }
+
+      console.log('✅ 组件配置解析成功:', parsed)
+      console.groupEnd()
+      return parsed
+    } catch (error) {
+      console.error('❌ 解析组件配置失败:', error)
+      console.groupEnd()
+      throw error
     }
   }
 

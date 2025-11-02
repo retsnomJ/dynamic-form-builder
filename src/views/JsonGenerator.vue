@@ -110,6 +110,44 @@
               </template>
             </el-table-column>
 
+            <!-- 新增校验规则列 -->
+            <el-table-column label="校验规则" width="200">
+              <template #default="{ row, $index }">
+                <div class="validations-display">
+                  <div v-if="row.validation && row.validation.rules && row.validation.rules.length > 0" class="validations-list">
+                    <el-tooltip 
+                      v-for="(rule, ruleIndex) in row.validation.rules" 
+                      :key="ruleIndex"
+                      :content="rule.description || getValidationRuleDescription(rule)"
+                      placement="top"
+                      :disabled="!rule.description || rule.description.length <= 10"
+                    >
+                      <el-tag 
+                        size="small"
+                        :type="getValidationTagType(rule)"
+                        closable
+                        @close="removeValidationRule($index, ruleIndex)"
+                        class="validation-tag"
+                        @click="editValidationRule($index, ruleIndex)"
+                      >
+                        {{ rule.description || getValidationRuleDescription(rule) }}
+                      </el-tag>
+                    </el-tooltip>
+                  </div>
+                  <div class="validations-actions">
+                    <el-button 
+                      type="text" 
+                      size="small" 
+                      @click="addNewValidationRule($index)"
+                      style="color: #409eff; padding: 2px 4px;"
+                    >
+                      + 添加校验
+                    </el-button>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+
             <el-table-column label="操作" width="160" fixed="right">
               <template #default="{ $index }">
                 <div class="action-buttons">
@@ -716,6 +754,58 @@ const addNewEvent = (fieldIndex: number) => {
   currentFieldIndex.value = fieldIndex
   currentEventIndex.value = -1 // -1 表示新增事件
   eventConfigVisible.value = true
+}
+
+// 获取校验规则标签类型
+const getValidationTagType = (rule: any) => {
+  if (rule.required) return 'danger'
+  if (rule.type === 'email') return 'primary'
+  if (rule.pattern) return 'warning'
+  if (rule.min || rule.max) return 'info'
+  if (rule.validator) return 'success'
+  return 'default'
+}
+
+// 获取校验规则描述
+const getValidationRuleDescription = (rule: any) => {
+  // 优先使用规则中的description字段
+  if (rule.description) return rule.description
+  
+  // 如果没有description，则根据规则类型生成描述
+  if (rule.required) return '必填校验'
+  if (rule.type === 'email') return '邮箱格式'
+  if (rule.type === 'number') return '数字类型'
+  if (rule.pattern) return '格式校验'
+  if (rule.min && rule.max) return `长度${rule.min}-${rule.max}`
+  if (rule.min) return `最小${rule.min}`
+  if (rule.max) return `最大${rule.max}`
+  if (rule.validator) return '自定义校验'
+  return '校验规则'
+}
+
+// 删除校验规则
+const removeValidationRule = (fieldIndex: number, ruleIndex: number) => {
+  const field = fields.value[fieldIndex]
+  if (field.validation && field.validation.rules && field.validation.rules.length > ruleIndex) {
+    field.validation.rules.splice(ruleIndex, 1)
+    // 如果没有校验规则了，清空validation对象
+    if (field.validation.rules.length === 0) {
+      field.validation = undefined
+    }
+    ElMessage.success('校验规则已删除')
+  }
+}
+
+// 编辑校验规则
+const editValidationRule = (fieldIndex: number, ruleIndex: number) => {
+  ElMessage.info('校验规则编辑功能开发中...')
+  // TODO: 实现校验规则编辑功能
+}
+
+// 添加新校验规则
+const addNewValidationRule = (fieldIndex: number) => {
+  ElMessage.info('校验规则添加功能开发中...')
+  // TODO: 实现校验规则添加功能
 }
 
 // 当前编辑的事件索引
