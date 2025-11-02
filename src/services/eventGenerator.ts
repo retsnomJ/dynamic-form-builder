@@ -21,7 +21,7 @@ const ENHANCED_INTENT_ANALYSIS_PROMPT_TEMPLATE = `你是一个表单配置专家
 请以JSON格式返回分析结果：
 {
   "eventAnalysis": {
-    "eventType": "事件类型(input/blur/focus/change)",
+    "eventType": "事件类型(blur/change)",
     "condition": "触发条件(可选)",
     "action": "执行动作的描述",
     "targetField": "目标字段名称",
@@ -67,6 +67,9 @@ const ENHANCED_INTENT_ANALYSIS_PROMPT_TEMPLATE = `你是一个表单配置专家
 9. 确保三个部分不重复，各司其职
 10. 校验规则只关注数据验证，不涉及业务逻辑
 11. 组件配置只关注UI展示，不涉及数据处理
+12. ⚠️ 重要限制：事件类型只能使用 blur 或 change，严禁使用 input、focus 等其他事件类型
+13. ⚠️ blur事件：在字段失去焦点时触发，适用于格式验证、数据处理等场景
+14. ⚠️ change事件：在字段值发生变化时触发，适用于联动计算、实时更新等场景
 
 请只返回JSON，不要其他内容。`
 
@@ -114,6 +117,12 @@ const CONFIG_GENERATION_PROMPT_TEMPLATE = `你是一个表单事件配置代码�
 - 条件文本: "(formData.status === 'active') ? '启用' : '禁用'"
 - 多条件: "(formData.type === 'A' && formData.level > 5) ? 100 : 50"
 - 保持原值: "(formData.product) ? formData.price * 1.1 : formData.price"
+
+⚠️ 重要限制：
+1. 事件类型只能使用 blur 或 change，严禁使用 input、focus 等其他事件类型
+2. blur事件：在字段失去焦点时触发，适用于格式验证、数据处理等场景
+3. change事件：在字段值发生变化时触发，适用于联动计算、实时更新等场景
+4. 必须严格遵守事件类型限制，不得生成其他类型的事件
 
 请只返回JSON配置，不要其他内容。`
 
@@ -166,6 +175,9 @@ const VALIDATION_GENERATION_PROMPT_TEMPLATE = `你是一个表单校验规则专
 4. 可以组合多个校验规则
 5. 自定义校验函数应该返回Promise<void>或boolean
 6. 每个校验规则必须包含description字段，用于可视化标签显示
+7. ⚠️ 重要限制：触发时机只能使用 blur、change 或 submit，严禁使用 input、focus 等其他事件类型
+8. ⚠️ blur触发：在字段失去焦点时触发校验，适用于格式验证、完整性检查等场景
+9. ⚠️ change触发：在字段值发生变化时触发校验，适用于实时验证、数值范围检查等场景
 
 请只返回JSON配置，不要其他内容。`
 
@@ -332,7 +344,7 @@ export class EventGeneratorService {
     return {
       description: description.trim(),
       availableFields: fieldSummaries,
-      supportedEvents: ['change', 'focus', 'blur', 'input'],
+      supportedEvents: ['change', 'blur'],
       supportedActions: ['setValue', 'show', 'hide', 'enable', 'disable', 'validate', 'callApi']
     }
   }
@@ -644,7 +656,7 @@ export class EventGeneratorService {
     const fieldNames = fields.map(f => f.fieldName)
     
     // 验证事件类型
-    const validEventTypes = ['change', 'focus', 'blur', 'input']
+    const validEventTypes = ['change', 'blur']
     console.log('🔍 验证事件类型:', event.type)
     if (!validEventTypes.includes(event.type)) {
       const error = `无效的事件类型: ${event.type}`
@@ -723,7 +735,7 @@ export class EventGeneratorService {
       return info
     }).join('\n')
 
-    const eventTypes = ['input', 'blur', 'focus', 'change', 'click']
+    const eventTypes = ['blur', 'change']
     
     // 根据选择的类型调整分析重点
     let analysisInstructions = '请仔细分析用户描述，识别以下方面的需求：\n\n'
@@ -749,7 +761,7 @@ export class EventGeneratorService {
     
     if (selectedTypes.includes('event')) {
       jsonStructure += `  "eventAnalysis": {
-    "eventType": "事件类型(input/blur/focus/change)",
+    "eventType": "事件类型(blur/change)",
     "condition": "触发条件(可选)",
     "action": "执行动作的描述",
     "targetField": "目标字段名称",
@@ -825,6 +837,9 @@ ${jsonStructure}
 8. 确保各个部分不重复，各司其职
 9. 校验规则只关注数据验证，不涉及业务逻辑
 10. 组件配置只关注UI展示，不涉及数据处理
+11. ⚠️ 重要限制：事件类型只能使用 blur 或 change，严禁使用 input、focus 等其他事件类型
+12. ⚠️ blur事件：在字段失去焦点时触发，适用于格式验证、数据处理等场景
+13. ⚠️ change事件：在字段值发生变化时触发，适用于联动计算、实时更新等场景
 
 请只返回JSON，不要其他内容。`
   }
@@ -862,7 +877,7 @@ ${jsonStructure}
       return info
     }).join('\n')
 
-    const eventTypes = ['input', 'blur', 'focus', 'change']
+    const eventTypes = ['blur', 'change']
 
     return ENHANCED_INTENT_ANALYSIS_PROMPT_TEMPLATE
       .replace('{description}', description)
@@ -1286,8 +1301,6 @@ ${jsonStructure}
     const eventTypeMap: Record<string, string> = {
       'blur': '失去焦点时',
       'change': '值改变时',
-      'focus': '获得焦点时',
-      'input': '输入时',
       'click': '点击时'
     }
     
