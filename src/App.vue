@@ -11,25 +11,16 @@
             mode="horizontal"
             @select="handleMenuSelect"
           >
-            <el-menu-item index="test">表单测试</el-menu-item>
             <el-menu-item index="generator">JSON生成器</el-menu-item>
             <el-menu-item index="simulator">接口模拟器</el-menu-item>
-            <el-menu-item index="docs">数据格式文档</el-menu-item>
           </el-menu>
         </div>
       </el-header>
 
       <!-- 主内容区域 -->
       <el-main class="app-main">
-        <DynamicForm 
-           v-show="activeMenu === 'test'"
-           :config="formConfig"
-           v-model="formData"
-           @submit="handleFormSubmit"
-         />
          <JsonGenerator v-show="activeMenu === 'generator'" />
          <ApiSimulator v-show="activeMenu === 'simulator'" />
-         <div v-show="activeMenu === 'docs'">文档页面（待开发）</div>
       </el-main>
     </el-container>
   </div>
@@ -37,27 +28,11 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import DynamicForm from '../components/DynamicForm.vue'
 import JsonGenerator from './views/JsonGenerator.vue'
 import ApiSimulator from './views/ApiSimulator.vue'
-import type { FormConfig, FormData } from '../types/form-config'
-
-// 导入表单配置
-import inventoryFormConfig from '../inventory-add-form.json'
 
 // 当前激活的菜单
-const activeMenu = ref('test')
-
-// 表单配置
-const formConfig = ref<FormConfig>(inventoryFormConfig as FormConfig)
-
-// 表单数据
-const formData = ref<FormData>({})
-
-// 表单提交处理
-const handleFormSubmit = (data: FormData) => {
-  console.log('表单提交:', data)
-}
+const activeMenu = ref('generator')
 
 // 菜单选择处理
 const handleMenuSelect = (key: string) => {
