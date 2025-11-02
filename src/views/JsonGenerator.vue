@@ -198,13 +198,49 @@
         <div class="panel-header">
           <h3>JSON预览</h3>
           <div class="preview-actions">
+            <el-button 
+              size="small" 
+              @click="toggleJsonEditMode" 
+              :type="isJsonEditMode ? 'primary' : 'default'"
+              :icon="isJsonEditMode ? 'View' : 'Edit'"
+            >
+              {{ isJsonEditMode ? '预览模式' : '编辑模式' }}
+            </el-button>
             <el-button @click="copyJson" icon="DocumentCopy">复制</el-button>
             <el-button @click="downloadJson" icon="Download">下载</el-button>
           </div>
         </div>
 
-        <div class="json-preview">
-          <pre><code>{{ formattedJson }}</code></pre>
+        <!-- 预览模式 -->
+        <div v-if="!isJsonEditMode" class="json-preview">
+          <pre class="json-content" v-html="highlightedJson"></pre>
+        </div>
+
+        <!-- 编辑模式 -->
+        <div v-else class="json-editor">
+          <el-input
+            v-model="editableJsonText"
+            type="textarea"
+            :rows="20"
+            placeholder="在此编辑JSON配置..."
+            @input="validateJsonEdit"
+            class="json-editor-input"
+          />
+          <div v-if="jsonEditError" class="json-edit-error">
+            <el-icon><WarningFilled /></el-icon>
+            {{ jsonEditError }}
+          </div>
+          <div class="json-editor-actions">
+            <el-button size="small" @click="formatJsonEdit" icon="MagicStick">
+              格式化
+            </el-button>
+            <el-button size="small" type="primary" @click="applyJsonEdit" icon="Check">
+              应用更改
+            </el-button>
+            <el-button size="small" @click="cancelJsonEdit" icon="Close">
+              取消
+            </el-button>
+          </div>
         </div>
       </div>
     </div>
@@ -221,9 +257,60 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { ElMessage } from 'element-plus/es'
+import { WarningFilled } from '@element-plus/icons-vue'
 import type { FieldConfig, FieldEvent } from '../../types/form-config'
 import { getDataSourceOptions, getDataSourceById } from '../data/data-sources'
 import EventConfigHelper from '../components/EventConfigHelper.vue'
+
+// JSON编辑模式相关函数
+const toggleJsonEditMode = () => {
+  if (!isJsonEditMode.value) {
+    editableJsonText.value = formattedJson.value
+    jsonEditError.value = ''
+  }
+  isJsonEditMode.value = !isJsonEditMode.value
+}
+
+const validateJsonEdit = () => {
+  try {
+    JSON.parse(editableJsonText.value)
+    jsonEditError.value = ''
+  } catch (error: any) {
+    jsonEditError.value = `JSON格式错误: ${error.message}`
+  }
+}
+
+const formatJsonEdit = () => {
+  try {
+    const parsed = JSON.parse(editableJsonText.value)
+    editableJsonText.value = JSON.stringify(parsed, null, 2)
+    jsonEditError.value = ''
+  } catch (error) {
+    ElMessage.error('JSON格式错误，无法格式化')
+  }
+}
+
+const applyJsonEdit = () => {
+  try {
+    const parsed = JSON.parse(editableJsonText.value)
+    if (parsed.fields && Array.isArray(parsed.fields)) {
+      fields.value = parsed.fields
+      isJsonEditMode.value = false
+      ElMessage.success('JSON配置已应用')
+    } else {
+      ElMessage.error('JSON格式不正确，缺少fields字段')
+    }
+  } catch (error) {
+    ElMessage.error('JSON格式错误，无法应用')
+  }
+}
+
+const cancelJsonEdit = () => {
+  isJsonEditMode.value = false
+  editableJsonText.value = ''
+  jsonEditError.value = ''
+}
 
 // 扩展FieldConfig接口以支持表格编辑
 interface EditableFieldConfig extends FieldConfig {
@@ -314,6 +401,11 @@ const fields = ref<EditableFieldConfig[]>(loadFromStorage())
 // 事件配置相关
 const eventConfigVisible = ref(false)
 const currentFieldIndex = ref(-1)
+
+// JSON编辑相关
+const isJsonEditMode = ref(false)
+const editableJsonText = ref('')
+const jsonEditError = ref('')
 
 // 监听fields变化，自动保存到localStorage
 watch(fields, (newFields) => {
@@ -622,6 +714,19 @@ const formattedJson = computed(() => {
   return JSON.stringify(config, null, 2)
 })
 
+// JSON语法高亮
+const highlightedJson = computed(() => {
+  const json = formattedJson.value
+  // 使用更精确的正则表达式，避免破坏换行符
+  return json
+    .replace(/("(?:[^"\\]|\\.)*")\s*:/g, '<span class="json-key">$1</span>:')
+    .replace(/:\s*("(?:[^"\\]|\\.)*")/g, ': <span class="json-string">$1</span>')
+    .replace(/:\s*(true|false)\b/g, ': <span class="json-boolean">$1</span>')
+    .replace(/:\s*(\d+(?:\.\d+)?)\b/g, ': <span class="json-number">$1</span>')
+    .replace(/:\s*(null)\b/g, ': <span class="json-null">$1</span>')
+    .replace(/([{}[\]])/g, '<span class="json-bracket">$1</span>')
+})
+
 // 复制JSON
 const copyJson = async () => {
   try {
@@ -780,6 +885,91 @@ addField()
   content: "未设置";
   color: #c0c4cc;
   font-style: italic;
+}
+
+/* JSON编辑器样式 */
+.json-editor {
+  width: 100%;
+  min-height: 300px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  padding: 12px;
+  background-color: #fafafa;
+}
+
+.json-editor:focus {
+  border-color: #409eff;
+  outline: none;
+}
+
+.json-error {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background-color: #fef0f0;
+  border: 1px solid #fbc4c4;
+  border-radius: 4px;
+  color: #f56c6c;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* JSON预览区域样式 */
+.json-preview {
+  background-color: #fafafa;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  padding: 16px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.json-content {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* JSON语法高亮 */
+.json-key {
+  color: #e96900;
+  font-weight: bold;
+}
+
+.json-string {
+  color: #032f62;
+}
+
+.json-number {
+  color: #005cc5;
+}
+
+.json-boolean {
+  color: #d73a49;
+  font-weight: bold;
+}
+
+.json-null {
+  color: #6f42c1;
+  font-weight: bold;
+}
+
+.json-bracket {
+  color: #24292e;
+  font-weight: bold;
 }
 }
 
