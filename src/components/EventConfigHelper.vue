@@ -4,6 +4,7 @@
     title="智能事件配置"
     width="900px"
     :before-close="closeDialog"
+    :close-on-click-modal="false"
   >
     <div class="event-config-helper">
       <!-- 步骤指示器 -->
