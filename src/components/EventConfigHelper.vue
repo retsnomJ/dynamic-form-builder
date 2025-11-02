@@ -328,6 +328,7 @@ interface Props {
   visible: boolean
   fields: FieldConfig[]
   targetFieldName?: string
+  defaultConfigTypes?: string[] // 新增：默认勾选的配置类型
 }
 
 interface Emits {
@@ -380,6 +381,51 @@ watch(() => props.targetFieldName, (newTargetFieldName) => {
     }
   }
 }, { immediate: true })
+
+// 监听defaultConfigTypes变化，设置默认勾选的配置类型
+watch(() => props.defaultConfigTypes, (newDefaultConfigTypes) => {
+  if (newDefaultConfigTypes && newDefaultConfigTypes.length > 0) {
+    selectedConfigTypes.value = [...newDefaultConfigTypes]
+  }
+}, { immediate: true })
+
+// 监听弹窗显示状态，重置表单
+watch(() => props.visible, (newVisible) => {
+  if (newVisible) {
+    // 重置表单状态
+    currentStep.value = 0
+    description.value = ''
+    selectedFields.value = []
+    intentAnalysis.value = null
+    enhancedIntentAnalysis.value = null
+    generatedEvent.value = null
+    generatedConfig.value = null
+    targetField.value = ''
+    eventTargetField.value = ''
+    validationTargetField.value = ''
+    componentConfigTargetField.value = ''
+    naturalDescription.value = ''
+    isAnalyzing.value = false
+    isGenerating.value = false
+    validationErrors.value = []
+    errorMessage.value = ''
+    
+    // 设置默认配置类型
+    if (props.defaultConfigTypes && props.defaultConfigTypes.length > 0) {
+      selectedConfigTypes.value = [...props.defaultConfigTypes]
+    } else {
+      selectedConfigTypes.value = ['event'] // 默认选择事件配置
+    }
+    
+    // 如果有目标字段，自动添加到选中字段列表
+    if (props.targetFieldName) {
+      targetField.value = props.targetFieldName
+      if (!selectedFields.value.includes(props.targetFieldName)) {
+        selectedFields.value.push(props.targetFieldName)
+      }
+    }
+  }
+})
 
 // 方法
 const fillExample = () => {

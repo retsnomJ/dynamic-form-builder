@@ -148,17 +148,9 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="操作" width="160" fixed="right">
+            <el-table-column label="操作" width="60" fixed="right">
               <template #default="{ $index }">
                 <div class="action-buttons">
-                  <el-button 
-                    type="text" 
-                    size="small" 
-                    @click="openEventConfig($index)"
-                    style="color: #409eff"
-                  >
-                    事件
-                  </el-button>
                   <el-button 
                     type="text" 
                     size="small" 
@@ -326,6 +318,7 @@
       v-model:visible="eventConfigVisible"
       :fields="fields"
       :target-field-name="currentFieldIndex >= 0 ? fields[currentFieldIndex]?.fieldName : undefined"
+      :default-config-types="defaultConfigTypes"
       :current-event="getCurrentEvent()"
       @apply="applyEventToField"
       @applyEnhanced="applyEnhancedConfigToField"
@@ -491,6 +484,7 @@ const fields = ref<EditableFieldConfig[]>(loadFromStorage())
 // 事件配置相关
 const eventConfigVisible = ref(false)
 const currentFieldIndex = ref(-1)
+const defaultConfigTypes = ref<string[]>([]) // 新增：默认配置类型
 
 // JSON编辑相关
 const isJsonEditMode = ref(false)
@@ -753,6 +747,7 @@ const editEvent = (fieldIndex: number, eventIndex: number) => {
 const addNewEvent = (fieldIndex: number) => {
   currentFieldIndex.value = fieldIndex
   currentEventIndex.value = -1 // -1 表示新增事件
+  defaultConfigTypes.value = ['event'] // 默认勾选事件配置
   eventConfigVisible.value = true
 }
 
@@ -804,8 +799,10 @@ const editValidationRule = (fieldIndex: number, ruleIndex: number) => {
 
 // 添加新校验规则
 const addNewValidationRule = (fieldIndex: number) => {
-  ElMessage.info('校验规则添加功能开发中...')
-  // TODO: 实现校验规则添加功能
+  currentFieldIndex.value = fieldIndex
+  currentEventIndex.value = -1 // -1 表示新增
+  defaultConfigTypes.value = ['validation'] // 默认勾选校验规则
+  eventConfigVisible.value = true
 }
 
 // 当前编辑的事件索引
