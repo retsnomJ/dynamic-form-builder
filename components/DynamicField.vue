@@ -202,6 +202,8 @@ const loadOptions = async (searchKeyword?: string) => {
     } else if (dataSource.type === 'api' && dataSource.url) {
       // API数据源
       console.log('正在请求API:', dataSource.url, '搜索关键词:', searchKeyword)
+      console.log('数据源配置:', dataSource)
+      console.log('数据源headers:', dataSource.headers)
       
       // 构建请求URL
       let url = dataSource.url
@@ -228,14 +230,26 @@ const loadOptions = async (searchKeyword?: string) => {
       
       console.log('最终请求URL:', url)
       
-      // 发送请求
-      const response = await fetch(url, {
+      // 构建请求配置
+      const requestConfig: RequestInit = {
         method: dataSource.method || 'GET',
         headers: {
           'Content-Type': 'application/json',
-          ...dataSource.headers
+          ...(dataSource.headers || {})
         }
-      })
+      }
+      
+      // 详细日志：请求配置
+      console.group('🚀 API 请求详情')
+      console.log('📍 请求URL:', url)
+      console.log('🔧 请求方法:', requestConfig.method)
+      console.log('📋 请求头:', requestConfig.headers)
+      console.log('🔑 自定义请求头:', dataSource.headers)
+      console.log('📊 合并后的请求头:', requestConfig.headers)
+      console.groupEnd()
+      
+      // 发送请求
+      const response = await fetch(url, requestConfig)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -249,6 +263,13 @@ const loadOptions = async (searchKeyword?: string) => {
       
       const result = await response.json()
       console.log('API响应:', result)
+      
+      // 详细日志：响应信息
+      console.group('📥 API 响应详情')
+      console.log('📊 响应状态:', response.status, response.statusText)
+      console.log('📋 响应头:', Object.fromEntries(response.headers.entries()))
+      console.log('📄 响应数据:', result)
+      console.groupEnd()
       
       // 处理响应数据
       let data = result

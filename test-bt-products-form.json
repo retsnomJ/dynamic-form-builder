@@ -1,0 +1,98 @@
+{
+  "formName": "testBtProductsForm",
+  "formTitle": "BT产品接口测试表单",
+  "formDescription": "用于测试BT产品接口的请求头功能",
+  "fields": [
+    {
+      "fieldName": "btProductSelector",
+      "fieldLabel": "BT产品选择",
+      "fieldType": "select",
+      "required": true,
+      "placeholder": "请输入产品名称进行搜索（测试tenant-id请求头）",
+      "componentConfig": {
+        "clearable": true,
+        "filterable": true,
+        "remote": true
+      },
+      "dataSource": {
+        "type": "api",
+        "url": "http://localhost:48080/admin-api/basedata/basequery/common/listProductInfo",
+        "method": "GET",
+        "headers": {
+          "tenant-id": "1"
+        },
+        "params": {
+          "keyword": "{searchKeyword}"
+        },
+        "responseMapping": {
+          "value": "id",
+          "label": "productName",
+          "customData": {
+            "id": "id",
+            "shortName": "shortName",
+            "productName": "productName",
+            "drawCode": "drawCode",
+            "productTypeId": "productTypeId",
+            "unitsId": "unitsId",
+            "material": "material",
+            "barcodeValue": "barcodeValue"
+          }
+        },
+        "dataPath": "data"
+      },
+      "events": [
+        {
+          "type": "change",
+          "actions": [
+            {
+              "type": "setValue",
+              "targetField": "selectedProductId",
+              "sourceExpression": "selectedOption.id"
+            },
+            {
+              "type": "setValue",
+              "targetField": "selectedProductName",
+              "sourceExpression": "selectedOption.productName"
+            },
+            {
+              "type": "setValue",
+              "targetField": "selectedProductCode",
+              "sourceExpression": "selectedOption.drawCode"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "fieldName": "selectedProductId",
+      "fieldLabel": "选中产品ID",
+      "fieldType": "integer",
+      "disabled": true,
+      "placeholder": "从产品选择器自动填充"
+    },
+    {
+      "fieldName": "selectedProductName",
+      "fieldLabel": "选中产品名称",
+      "fieldType": "string",
+      "disabled": true,
+      "placeholder": "从产品选择器自动填充"
+    },
+    {
+      "fieldName": "selectedProductCode",
+      "fieldLabel": "选中产品图号",
+      "fieldType": "string",
+      "disabled": true,
+      "placeholder": "从产品选择器自动填充"
+    }
+  ],
+  "layout": {
+    "columns": 1,
+    "labelWidth": "150px",
+    "labelPosition": "right",
+    "size": "default"
+  },
+  "validation": {
+    "validateOnRuleChange": false,
+    "hideRequiredAsterisk": false
+  }
+}

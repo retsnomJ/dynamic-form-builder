@@ -897,6 +897,11 @@ const onDataSourceChange = (index: number) => {
         responseMapping: dataSource.responseMapping
       }
       
+      // 添加headers（如果存在）
+      if (dataSource.headers) {
+        dataSourceConfig.headers = dataSource.headers
+      }
+      
       // 添加params参数（如果存在）
       if (dataSource.params) {
         dataSourceConfig.params = dataSource.params
