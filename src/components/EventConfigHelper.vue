@@ -31,6 +31,54 @@
             <el-text size="small" type="info">至少选择一种配置类型</el-text>
           </div>
         </div>
+
+        <!-- 事件配置交互式提示组件 -->
+        <div v-if="selectedConfigTypes.includes('event')" class="interactive-event-prompt">
+          <label class="section-label">事件触发条件：</label>
+          <div class="event-prompt-container">
+            <span class="prompt-text">当</span>
+            <el-select 
+              v-model="eventPromptField" 
+              placeholder="选择字段"
+              class="field-select"
+              clearable
+            >
+              <el-option
+                v-for="field in availableFields"
+                :key="field.fieldName"
+                :label="`${field.fieldLabel} (${field.fieldName})`"
+                :value="field.fieldName"
+              />
+            </el-select>
+            <span class="prompt-text">的</span>
+            <el-select 
+              v-model="eventPromptType" 
+              placeholder="选择事件类型"
+              class="event-type-select"
+              clearable
+            >
+              <el-option label="值变化" value="change" />
+              <el-option label="失去焦点" value="blur" />
+            </el-select>
+            <span class="prompt-text">时候</span>
+          </div>
+          <div class="event-prompt-actions">
+            <el-button 
+              size="small" 
+              type="primary" 
+              :disabled="!eventPromptField || !eventPromptType"
+              @click="addEventPromptToDescription"
+            >
+              添加到描述
+            </el-button>
+            <el-button 
+              size="small" 
+              @click="clearEventPrompt"
+            >
+              清空
+            </el-button>
+          </div>
+        </div>
         
         <!-- 需求描述部分 -->
         <div class="description-section">
@@ -365,11 +413,21 @@ const validationErrors = ref<string[]>([])
 const errorMessage = ref('')
 const useEnhancedMode = ref(true) // 新增：是否使用增强模式
 const selectedConfigTypes = ref<string[]>(['event']) // 新增：选择的配置类型，默认选择事件配置
+// 新增：交互式事件提示组件数据
+const eventPromptField = ref('')
+const eventPromptType = ref('')
 
 // 计算属性
 const dialogVisible = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value)
+})
+
+// 可用字段列表（用于交互式事件提示组件）
+const availableFields = computed(() => {
+  return props.fields.filter(field => 
+    selectedFields.value.includes(field.fieldName)
+  )
 })
 
 // 监听targetFieldName变化，自动填充目标字段
@@ -410,6 +468,8 @@ watch(() => props.visible, (newVisible) => {
     isGenerating.value = false
     validationErrors.value = []
     errorMessage.value = ''
+    eventPromptField.value = ''
+    eventPromptType.value = ''
     
     // 设置默认配置类型
     if (props.defaultConfigTypes && props.defaultConfigTypes.length > 0) {
@@ -431,6 +491,43 @@ watch(() => props.visible, (newVisible) => {
 // 方法
 const fillExample = () => {
   description.value = '当产品名称以bt开头时，单价在失去焦点时乘以10'
+}
+
+// 交互式事件提示组件方法
+const addEventPromptToDescription = () => {
+  if (!eventPromptField.value || !eventPromptType.value) {
+    return
+  }
+  
+  const field = props.fields.find(f => f.fieldName === eventPromptField.value)
+  const fieldLabel = field ? field.fieldLabel : eventPromptField.value
+  
+  const eventTypeMap = {
+    'change': '值变化',
+    'blur': '失去焦点',
+    'focus': '获得焦点',
+    'input': '输入时',
+    'click': '点击时',
+    'dblclick': '双击时'
+  }
+  
+  const eventTypeLabel = eventTypeMap[eventPromptType.value as keyof typeof eventTypeMap] || eventPromptType.value
+  const promptText = `当${fieldLabel}的${eventTypeLabel}时候`
+  
+  // 添加到描述中
+  if (description.value.trim()) {
+    description.value += `；${promptText}`
+  } else {
+    description.value = promptText
+  }
+  
+  // 清空选择
+  clearEventPrompt()
+}
+
+const clearEventPrompt = () => {
+  eventPromptField.value = ''
+  eventPromptType.value = ''
 }
 
 // 获取描述占位符
@@ -674,6 +771,8 @@ const closeDialog = () => {
   isGenerating.value = false
   validationErrors.value = []
   errorMessage.value = ''
+  eventPromptField.value = ''
+  eventPromptType.value = ''
   
   emit('update:visible', false)
 }
@@ -693,6 +792,8 @@ watch(() => props.visible, (newVal) => {
       isGenerating.value = false
       validationErrors.value = []
       errorMessage.value = ''
+      eventPromptField.value = ''
+      eventPromptType.value = ''
     }, 300)
   }
 })
@@ -1067,5 +1168,59 @@ watch(() => props.visible, (newVal) => {
   line-height: 1.4;
   color: #606266;
   margin: 0;
+}
+
+/* 新增：交互式事件提示组件样式 */
+.interactive-event-prompt {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+}
+
+.event-prompt-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.prompt-text {
+  font-size: 14px;
+  color: #606266;
+  white-space: nowrap;
+}
+
+.field-select,
+.event-type-select {
+  min-width: 120px;
+  flex: 1;
+}
+
+.event-prompt-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .event-prompt-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .prompt-text {
+    text-align: center;
+    margin: 4px 0;
+  }
+  
+  .field-select,
+  .event-type-select {
+    width: 100%;
+    margin: 4px 0;
+  }
 }
 </style>

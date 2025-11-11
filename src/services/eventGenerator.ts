@@ -490,51 +490,7 @@ export class EventGeneratorService {
     }
   }
 
-  /**
-   * 增强的配置生成 - 支持生成事件、校验和组件配置
-   */
-  static async generateEnhancedConfig(enhancedAnalysis: EnhancedIntentAnalysis, selectedFields: FieldConfig[]): Promise<{
-    event?: FieldEvent;
-    validation?: any;
-    componentConfig?: any;
-  }> {
-    console.group('⚙️ 增强配置生成')
-    console.log('🧠 增强意图分析结果:', enhancedAnalysis)
-    console.log('📋 选中字段:', selectedFields.map(f => `${f.fieldLabel}(${f.fieldName})`))
-    
-    const result: {
-      event?: FieldEvent;
-      validation?: any;
-      componentConfig?: any;
-    } = {}
-    
-    try {
-      // 生成事件配置
-      if (enhancedAnalysis.eventAnalysis) {
-        const eventConfig = await this.generateEventConfig(enhancedAnalysis.eventAnalysis, selectedFields)
-        result.event = eventConfig
-      }
-      
-      // 生成校验配置
-      if (enhancedAnalysis.validationAnalysis?.hasValidation) {
-        result.validation = await this.generateValidationConfig(enhancedAnalysis.validationAnalysis, selectedFields)
-      }
-      
-      // 生成组件配置
-      if (enhancedAnalysis.componentConfigAnalysis?.hasConfig) {
-        result.componentConfig = await this.generateComponentConfig(enhancedAnalysis.componentConfigAnalysis, selectedFields)
-      }
-      
-      console.log('✅ 生成的增强配置:', result)
-      console.groupEnd()
-      
-      return result
-    } catch (error) {
-      console.error('❌ 生成增强配置失败:', error)
-      console.groupEnd()
-      throw new Error(`生成增强配置失败: ${error instanceof Error ? error.message : '未知错误'}`)
-    }
-  }
+
 
   /**
    * 生成校验配置
