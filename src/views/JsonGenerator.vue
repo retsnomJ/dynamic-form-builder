@@ -202,16 +202,20 @@
                     style="width: 100%"
                     size="small"
                     :loading="dictLoading"
+                    filterable
+                    remote
+                    :remote-method="handleDictTypeSearch"
+                    reserve-keyword
                   >
                     <el-option
-                      v-for="dict in dictTypes"
+                      v-for="dict in filteredDictTypes"
                       :key="dict.type"
                       :label="dict.name"
                       :value="dict.type"
                     >
-                      <div style="display: flex; flex-direction: column;">
+                      <div style="display: flex; align-items: center; gap: 8px;">
                         <span>{{ dict.name }}</span>
-                        <span style="font-size: 11px; color: #909399;">{{ dict.labels }}</span>
+                        <span style="color: #67c23a; font-size: 12px;">({{ dict.labels }})</span>
                       </div>
                     </el-option>
                   </el-select>
@@ -529,6 +533,7 @@ const jsonEditError = ref('')
 
 // 字典相关状态
 const dictTypes = ref<Array<{name: string, type: string, labels: string}>>([])
+const filteredDictTypes = ref<Array<{name: string, type: string, labels: string}>>([])
 const dictLoading = ref(false)
 const dictError = ref('')
 
@@ -554,6 +559,7 @@ const loadDictTypes = async () => {
   try {
     const types = await fetchDictTypes('i')
     dictTypes.value = types
+    filteredDictTypes.value = types // 初始化过滤列表
     console.log('字典类型加载成功:', types)
   } catch (error) {
     dictError.value = '加载字典类型失败: ' + (error as Error).message
@@ -561,6 +567,21 @@ const loadDictTypes = async () => {
   } finally {
     dictLoading.value = false
   }
+}
+
+// 字典类型搜索
+const handleDictTypeSearch = (query: string) => {
+  if (!query) {
+    filteredDictTypes.value = dictTypes.value
+    return
+  }
+  
+  const keyword = query.toLowerCase()
+  filteredDictTypes.value = dictTypes.value.filter(dict => 
+    dict.name.toLowerCase().includes(keyword) || 
+    dict.type.toLowerCase().includes(keyword) ||
+    dict.labels.toLowerCase().includes(keyword)
+  )
 }
 
 // 添加字段
