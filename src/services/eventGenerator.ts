@@ -1,5 +1,5 @@
 // 事件生成服务
-import type { FieldConfig, FieldEvent, EventAction, EnhancedIntentAnalysis } from '../../types/form-config'
+import type { FieldConfig, FieldEvent, EnhancedIntentAnalysis } from '../../types/form-config'
 
 // ==================== 提示词模板 ====================
 // 增强的意图分析提示词模板
@@ -644,7 +644,7 @@ export class EventGeneratorService {
     } catch (error) {
       console.error('❌ 生成描述失败:', error)
       // 返回默认描述
-      return this.generateFallbackDescription(event, targetField)
+      return this.generateFallbackDescription(event)
     } finally {
       console.groupEnd()
     }
@@ -841,7 +841,9 @@ ${jsonStructure}
 
   /**
    * 构建意图分析提示词（保持向后兼容）
+   * @deprecated 使用 buildEnhancedIntentAnalysisPrompt 替代
    */
+  // @ts-ignore - 忽略未使用警告，保持向后兼容
   private static buildIntentAnalysisPrompt(description: string, selectedFields: FieldConfig[]): string {
     // 使用增强版本的提示词构建
     return this.buildEnhancedIntentAnalysisPrompt(description, selectedFields)
@@ -1050,6 +1052,11 @@ ${jsonStructure}
       throw new Error(`解析增强意图分析结果失败: ${error instanceof Error ? error.message : '未知错误'}`)
     }
   }
+  /**
+   * 解析意图分析结果（保持向后兼容）
+   * @deprecated 使用 parseEnhancedIntentAnalysis 替代
+   */
+  // @ts-ignore - 忽略未使用警告，保持向后兼容
   private static parseIntentAnalysis(response: string): IntentAnalysis {
     console.group('🔍 解析意图分析结果')
     console.log('📄 原始响应:', response)
@@ -1247,7 +1254,11 @@ ${jsonStructure}
   /**
    * 生成备用描述（当AI生成失败时使用）
    */
-  private static generateFallbackDescription(event: FieldEvent, targetField: string): string {
+  /**
+   * 生成备用描述（当AI生成失败时使用）
+   * @deprecated 此方法已过时，使用更智能的AI生成替代
+   */
+  private static generateFallbackDescription(event: FieldEvent): string {
     const eventTypeMap: Record<string, string> = {
       'blur': '失去焦点时',
       'change': '值改变时',

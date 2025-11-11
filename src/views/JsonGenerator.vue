@@ -128,7 +128,7 @@
                         closable
                         @close="removeValidationRule($index, ruleIndex)"
                         class="validation-tag"
-                        @click="editValidationRule($index, ruleIndex)"
+                        @click="editValidationRule()"
                       >
                         {{ rule.description || getValidationRuleDescription(rule) }}
                       </el-tag>
@@ -185,6 +185,7 @@
                 >
                   <el-option label="手动填写" value="manual" />
                   <el-option label="接口获取" value="api" />
+                  <el-option label="字典数据" value="dict" />
                   <el-option label="表单内部传递" value="internal" />
                 </el-select>
               </template>
@@ -192,8 +193,37 @@
 
             <el-table-column label="数据源" width="240">
               <template #default="{ row, $index }">
+                <!-- 字典数据源选择 -->
+                <div v-if="row.dataSourceType === 'dict'" style="display: flex; flex-direction: column; gap: 4px;">
+                  <el-select 
+                    v-model="row.dictType"
+                    placeholder="选择字典类型"
+                    @change="onDictTypeChange($index)"
+                    style="width: 100%"
+                    size="small"
+                    :loading="dictLoading"
+                  >
+                    <el-option
+                      v-for="dict in dictTypes"
+                      :key="dict.type"
+                      :label="dict.name"
+                      :value="dict.type"
+                    >
+                      <div style="display: flex; flex-direction: column;">
+                        <span>{{ dict.name }}</span>
+                        <span style="font-size: 11px; color: #909399;">{{ dict.labels }}</span>
+                      </div>
+                    </el-option>
+                  </el-select>
+                  <div v-if="dictError" class="dict-error">
+                    <el-icon><WarningFilled /></el-icon>
+                    {{ dictError }}
+                  </div>
+                </div>
+                
+                <!-- API数据源选择 -->
                 <el-select 
-                  v-if="row.dataSourceType === 'api'"
+                  v-else-if="row.dataSourceType === 'api'"
                   v-model="row.dataSourceId"
                   placeholder="选择API接口"
                   @change="onDataSourceChange($index)"
@@ -206,6 +236,8 @@
                     :value="option.value"
                   />
                 </el-select>
+                
+                <!-- 内部字段传递 -->
                 <div v-else-if="row.dataSourceType === 'internal'" style="display: flex; flex-direction: column; gap: 4px;">
                   <el-select 
                     v-model="row.internalFieldId"
@@ -237,6 +269,7 @@
                     />
                   </el-select>
                 </div>
+                
                 <span v-else-if="row.dataSourceType === 'manual'" class="text-muted">手动填写</span>
                 <span v-else class="text-muted">-</span>
               </template>
@@ -311,6 +344,7 @@
           </div>
         </div>
       </div>
+
     </div>
 
     <!-- 事件配置助手 -->
@@ -332,6 +366,7 @@ import { ElMessage } from 'element-plus/es'
 import { WarningFilled } from '@element-plus/icons-vue'
 import type { FieldConfig, FieldEvent } from '../../types/form-config'
 import { getDataSourceOptions, getDataSourceById } from '../data/data-sources'
+import { fetchDictTypes, generateDictDataSource } from '../services/dictionaryService'
 import EventConfigHelper from '../components/EventConfigHelper.vue'
 
 // JSON编辑模式相关函数
@@ -389,7 +424,8 @@ interface EditableFieldConfig extends FieldConfig {
   defaultValue?: any;
   dataSourceId?: string; // 添加数据源ID字段
   componentConfig?: any; // 添加组件配置字段
-  dataSourceType?: 'manual' | 'api' | 'internal'; // 添加数据源类型字段，包含手动填写选项
+  dataSourceType?: 'manual' | 'api' | 'internal' | 'dict'; // 添加数据源类型字段，包含手动填写选项
+  dictType?: string; // 添加字典类型字段
   internalFieldId?: string; // 添加内部字段ID字段
   internalFieldProperty?: string; // 添加内部字段属性字段
   events?: any[]; // 添加事件配置字段
@@ -491,6 +527,11 @@ const isJsonEditMode = ref(false)
 const editableJsonText = ref('')
 const jsonEditError = ref('')
 
+// 字典相关状态
+const dictTypes = ref<Array<{name: string, type: string, labels: string}>>([])
+const dictLoading = ref(false)
+const dictError = ref('')
+
 // 监听fields变化，自动保存到localStorage
 watch(fields, (newFields) => {
   saveToStorage(newFields)
@@ -502,7 +543,25 @@ onMounted(() => {
   if (fields.value.length === 0) {
     addField()
   }
+  // 加载字典类型
+  loadDictTypes()
 })
+
+// 加载字典类型
+const loadDictTypes = async () => {
+  dictLoading.value = true
+  dictError.value = ''
+  try {
+    const types = await fetchDictTypes('i')
+    dictTypes.value = types
+    console.log('字典类型加载成功:', types)
+  } catch (error) {
+    dictError.value = '加载字典类型失败: ' + (error as Error).message
+    console.error('加载字典类型失败:', error)
+  } finally {
+    dictLoading.value = false
+  }
+}
 
 // 添加字段
 const addField = () => {
@@ -528,11 +587,7 @@ const removeField = (index: number) => {
   fields.value.splice(index, 1)
 }
 
-// 打开事件配置
-const openEventConfig = (index: number) => {
-  currentFieldIndex.value = index
-  eventConfigVisible.value = true
-}
+// 打开事件配置 - 函数已移动到其他地方使用
 
 // 应用事件到字段
 const applyEventToField = (event: FieldEvent, fieldName: string) => {
@@ -791,8 +846,8 @@ const removeValidationRule = (fieldIndex: number, ruleIndex: number) => {
   }
 }
 
-// 编辑校验规则
-const editValidationRule = (fieldIndex: number, ruleIndex: number) => {
+// 编辑校验规则 - 功能开发中
+const editValidationRule = () => {
   ElMessage.info('校验规则编辑功能开发中...')
   // TODO: 实现校验规则编辑功能
 }
@@ -834,6 +889,7 @@ const onDataSourceTypeChange = (index: number) => {
   field.dataSource = undefined
   field.componentConfig = undefined
   field.events = undefined
+  field.dictType = undefined // 清空字典类型选择
 }
 
 // 获取可用的内部字段
@@ -881,9 +937,45 @@ const getAvailableFieldProperties = (fieldName: string) => {
   return properties
 }
 
+// 字典类型选择处理
+const onDictTypeChange = (index: number) => {
+  const field = fields.value[index]
+  if (field.dictType) {
+    const selectedDict = dictTypes.value.find(d => d.type === field.dictType)
+    if (selectedDict) {
+      // 生成字典数据源配置
+      const dictDataSource = generateDictDataSource(field.dictType, selectedDict.name)
+      field.dataSource = dictDataSource
+      
+      // 确保字段类型为select
+      if (field.fieldType !== 'select') {
+        field.fieldType = 'select'
+      }
+      
+      // 添加下拉框配置
+      if (!field.componentConfig) {
+        field.componentConfig = {}
+      }
+      field.componentConfig.clearable = true
+      
+      ElMessage.success(`已选择字典: ${selectedDict.name}`)
+    }
+  } else {
+    // 清空字典相关配置
+    field.dataSource = undefined
+  }
+}
+
+
+
 // 数据源变化处理
 const onDataSourceChange = (index: number) => {
   const field = fields.value[index]
+  
+  if (field.dataSourceType === 'dict' && field.dictType) {
+    // 字典数据源已在onDictTypeChange中处理
+    return
+  }
   
   if (field.dataSourceType === 'api' && field.dataSourceId) {
     // API数据源处理
@@ -1081,6 +1173,8 @@ const downloadJson = () => {
   console.log('JSON文件已下载')
 }
 
+
+
 // 初始化一个示例字段
 addField()
 </script>
@@ -1254,6 +1348,22 @@ addField()
   gap: 8px;
   justify-content: flex-end;
 }
+
+/* 字典错误提示样式 */
+.dict-error {
+  margin-top: 4px;
+  padding: 4px 8px;
+  background-color: #fef0f0;
+  border: 1px solid #fbc4c4;
+  border-radius: 4px;
+  color: #f56c6c;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+
 
 /* JSON预览区域样式 */
 .json-preview {

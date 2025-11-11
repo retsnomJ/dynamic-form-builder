@@ -49,22 +49,30 @@
   </Dialog>
 </template>
 <script setup lang="ts">
-import { ProductApi, ProductVO } from '@/api/erp/product/product'
+import { ref, reactive } from 'vue'
+// import { ProductApi, ProductVO } from '@/api/erp/product/product'
+const ProductApi = {
+  getTableColumns: async () => ({ 'productors.main': [] }),
+  getProduct: async (id: number) => ({ id }),
+  createProduct: async (_data: any) => {},
+  updateProduct: async (_data: any) => {}
+}
+type ProductVO = any
 
 /** ERP 产品 表单 */
 defineOptions({ name: 'ProductForm' })
 
-const { t } = useI18n() // 国际化
-const message = useMessage() // 消息弹窗
+// const { t } = useI18n() // 国际化
+// const message = useMessage() // 消息弹窗
 
 const dialogVisible = ref(false) // 弹窗的是否展示
 const dialogTitle = ref('') // 弹窗的标题
 const formLoading = ref(false) // 表单的加载中：1）修改时的数据加载；2）提交的按钮禁用
 const formType = ref('') // 表单的类型：create - 新增；update - 修改
-const formData = ref({
+const formData = ref<any>({
   id: undefined
 })
-const formRules = reactive({})
+const formRules = reactive<any>({})
 const formRef = ref() // 表单 Ref
 
 const customFormFields = ref<any[]>([])
@@ -91,7 +99,7 @@ async function initFormFields() {
 const open = async (type: string, id?: number) => {
   await initFormFields()
   dialogVisible.value = true
-  dialogTitle.value = t('action.' + type)
+  dialogTitle.value = type === 'create' ? '新增产品' : '修改产品'
   formType.value = type
   resetForm()
   // 修改时，设置数据
@@ -117,10 +125,10 @@ const submitForm = async () => {
     const data = formData.value as unknown as ProductVO
     if (formType.value === 'create') {
       await ProductApi.createProduct(data)
-      message.success(t('common.createSuccess'))
+      // message.success('创建成功')
     } else {
       await ProductApi.updateProduct(data)
-      message.success(t('common.updateSuccess'))
+      // message.success('更新成功')
     }
     dialogVisible.value = false
     // 发送操作成功的事件

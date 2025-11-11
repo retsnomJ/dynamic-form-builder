@@ -647,20 +647,20 @@ const applyConfig = () => {
   closeDialog()
 }
 
-// 重置状态
-const resetState = () => {
-  description.value = ''
-  selectedFields.value = []
-  intentAnalysis.value = null
-  enhancedIntentAnalysis.value = null
-  generatedEvent.value = null
-  generatedConfig.value = null
-  naturalDescription.value = ''
-  errorMessage.value = ''
-  validationErrors.value = []
-  currentStep.value = 0
-  targetField.value = ''
-}
+// 重置状态 - 在closeDialog函数中直接使用重置逻辑
+// const resetState = () => {
+//   description.value = ''
+//   selectedFields.value = []
+//   intentAnalysis.value = null
+//   enhancedIntentAnalysis.value = null
+//   generatedEvent.value = null
+//   generatedConfig.value = null
+//   naturalDescription.value = ''
+//   errorMessage.value = ''
+//   validationErrors.value = []
+//   currentStep.value = 0
+//   targetField.value = ''
+// }
 
 const closeDialog = () => {
   // 重置所有状态

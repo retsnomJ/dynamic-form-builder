@@ -177,7 +177,7 @@ const handleFieldChange = (fieldName: string, value: any, selectedOption?: Optio
 }
 
 // 处理字段事件
-const processFieldEvents = (field: FieldConfig, value: any, selectedOption?: OptionItem, eventType: string = 'change') => {
+const processFieldEvents = (field: FieldConfig, _value: any, selectedOption?: OptionItem, eventType: string = 'change') => {
   if (!field.events) return
 
   console.log(`处理字段 ${field.fieldName} 的 ${eventType} 事件`)
@@ -233,10 +233,10 @@ const evaluateExpression = (expression: string, selectedOption?: OptionItem): an
     } else if (expression.includes('formData.')) {
       // 支持复杂的formData表达式计算
       // 创建一个安全的计算环境
-      const context = {
-        formData: formData.value,
-        selectedOption: selectedOption || {}
-      }
+      // const context = {
+      //   formData: formData.value,
+      //   selectedOption: selectedOption || {}
+      // }
       
       // 简单的表达式替换和计算
       let evalExpression = expression
@@ -289,7 +289,7 @@ const evaluateExpression = (expression: string, selectedOption?: OptionItem): an
 const evaluateCondition = (condition: string, selectedOption?: OptionItem): boolean => {
   try {
     // 简单的条件判断，支持formData引用和selectedOption引用
-    let evalCondition = condition
+    // let evalCondition = condition
     
     // 创建一个安全的执行环境
     const context = {
