@@ -2,74 +2,36 @@
 import type { FieldConfig, FieldEvent, EnhancedIntentAnalysis } from '../../types/form-config'
 
 // ==================== 提示词模板 ====================
-// 增强的意图分析提示词模板
-const ENHANCED_INTENT_ANALYSIS_PROMPT_TEMPLATE = `你是一个表单配置专家。请分析用户的需求描述，将其分解为事件逻辑、校验规则和组件配置三个独立的部分。
+// 增强的意图分析提示词模板 - 动态版本，根据选择的类型生成对应内容
+const ENHANCED_INTENT_ANALYSIS_PROMPT_TEMPLATE = `你是一个表单配置专家。请分析用户的需求描述，{analysisType}。
 
 用户描述：{description}
+事件触发描述：{eventTriggerDescription}
 
 相关字段完整信息：
 {fieldsInfo}
 
 可用事件类型：{eventTypes}
 
-请仔细分析用户描述，识别以下三个方面的需求：
-
-1. **事件逻辑**：字段间的交互、数据联动、自动计算等
-2. **校验规则**：数据验证、格式检查、必填项等
-3. **组件配置**：UI展示相关的配置，如占位符、清空按钮、过滤等
+{analysisInstructions}
 
 请以JSON格式返回分析结果：
-{
-  "eventAnalysis": {
-    "eventType": "事件类型(blur/change)",
-    "condition": "触发条件(可选)",
-    "action": "执行动作的描述",
-    "targetField": "目标字段名称",
-    "sourceField": "源字段名称(如果有条件判断)",
-    "description": "事件功能的简洁描述",
-    "recommendedTargetField": "AI推荐的最佳目标字段"
-  },
-  "validationAnalysis": {
-    "hasValidation": true/false,
-    "rules": [
-      {
-        "type": "校验类型(required/min/max/pattern/custom)",
-        "value": "校验值(如果适用)",
-        "message": "错误提示信息",
-        "trigger": "触发时机(blur/change)"
-      }
-    ],
-    "description": "校验规则的描述",
-    "recommendedTargetField": "AI推荐应用校验的字段"
-  },
-  "componentConfigAnalysis": {
-    "hasConfig": true/false,
-    "config": {
-      "placeholder": "占位符文本",
-      "clearable": true/false,
-      "filterable": true/false,
-      "其他配置": "配置值"
-    },
-    "description": "组件配置的描述",
-    "recommendedTargetField": "AI推荐应用配置的字段"
-  }
-}
+{jsonStructure}
 
 注意事项：
 1. 仔细分析用户描述中涉及的所有字段
-2. 为每个配置项（事件、校验、组件配置）推荐最合适的目标字段
+2. 为每个配置项推荐最合适的目标字段
 3. 推荐字段必须从可用字段列表中选择
 4. 如果描述中明确指定了字段，优先使用指定的字段
 5. 如果没有明确指定，根据语义分析推荐最合适的字段
 6. 确保推荐的字段与配置的功能相匹配
-7. 如果用户描述中没有涉及某个方面，对应的hasValidation或hasConfig设为false
-8. 事件逻辑是必须的，校验和配置是可选的
-9. 确保三个部分不重复，各司其职
-10. 校验规则只关注数据验证，不涉及业务逻辑
-11. 组件配置只关注UI展示，不涉及数据处理
-12. ⚠️ 重要限制：事件类型只能使用 blur 或 change，严禁使用 input、focus 等其他事件类型
-13. ⚠️ blur事件：在字段失去焦点时触发，适用于格式验证、数据处理等场景
-14. ⚠️ change事件：在字段值发生变化时触发，适用于联动计算、实时更新等场景
+7. {selectionNote}
+8. 确保各个部分不重复，各司其职
+9. 校验规则只关注数据验证，不涉及业务逻辑
+10. 组件配置只关注UI展示，不涉及数据处理
+11. ⚠️ 重要限制：事件类型只能使用 blur 或 change，严禁使用 input、focus 等其他事件类型
+12. ⚠️ blur事件：在字段失去焦点时触发，适用于格式验证、数据处理等场景
+13. ⚠️ change事件：在字段值发生变化时触发，适用于联动计算、实时更新等场景
 
 请只返回JSON，不要其他内容。`
 
@@ -80,11 +42,17 @@ const CONFIG_GENERATION_PROMPT_TEMPLATE = `你是一个表单事件配置代码�
 - 事件类型: {eventType}
 - 触发条件: {condition}
 - 执行动作: {action}
-- 目标字段: {targetField}
+- 目标字段: {targetField} (事件作用的目标字段，即被修改的字段)
+- 事件绑定字段: {eventBindingField} (触发事件的字段，即事件监听器绑定的字段)
 - 源字段: {sourceField}
 
 所有字段信息：
 {fieldsInfo}
+
+📋 字段说明：
+- 目标字段(targetField)：事件执行动作作用的对象，即被修改的字段
+- 事件绑定字段(eventBindingField)：事件监听器绑定的字段，即触发事件的字段
+- 如果未指定事件绑定字段，则事件绑定在目标字段上
 
 请生成符合以下格式的事件配置JSON：
 {
@@ -260,18 +228,24 @@ const DESCRIPTION_GENERATION_PROMPT_TEMPLATE = `你是一个技术文档专家�
 事件配置：
 {eventConfig}
 
-目标字段：{targetField}
+目标字段：{targetField} (事件作用的目标字段，即被修改的字段)
+事件绑定字段
 
 字段信息：
 {fieldsInfo}
+
+📋 字段说明：
+- 目标字段：事件执行动作作用的对象，即被修改的字段
+- 事件绑定字段：事件监听器绑定的字段，即触发事件的字段
 
 请生成一个简洁明了的功能描述，说明这个事件配置的作用。
 
 要求：
 1. 使用通俗易懂的语言
 2. 突出关键的触发条件和执行动作
-3. 一句话概括功能
-4. 不要包含技术术语
+3. 明确区分触发字段和目标字段
+4. 一句话概括功能
+5. 不要包含技术术语
 
 示例：
 - "当产品名称以bt开头时，单价会自动乘以10"
@@ -301,7 +275,8 @@ export interface IntentAnalysis {
   eventType: string
   condition?: string
   action: string
-  targetField: string
+  targetField: string // 目标字段：事件作用的目标字段（被修改的字段）
+  eventBindingField?: string // 事件绑定字段：触发事件的字段（事件监听器绑定的字段）
   sourceField?: string
 }
 
@@ -368,58 +343,59 @@ export class EventGeneratorService {
 
   /**
    * 选择性意图分析 - 根据用户选择的配置类型进行分析
+   * 现在作为统一的意图分析入口，支持选择性分析和完整分析
    */
   static async analyzeSelectiveIntent(
     description: string, 
     selectedFields: FieldConfig[], 
-    selectedTypes: string[]
+    selectedTypes: string[] = ['event', 'validation', 'componentConfig'],
+    eventTriggerDescription?: string
   ): Promise<EnhancedIntentAnalysis> {
-    try {
-      const prompt = this.buildSelectiveIntentAnalysisPrompt(description, selectedFields, selectedTypes)
-      const response = await this.callLLMAPI(prompt)
-      return this.parseEnhancedIntentAnalysis(response)
-    } catch (error) {
-      console.error('选择性意图分析失败:', error)
-      throw new Error('选择性意图分析失败，请重试')
-    }
-  }
-
-  /**
-   * 增强的意图分析 - 分离事件、校验和配置
-   */
-  static async analyzeEnhancedIntent(description: string, selectedFields: FieldConfig[]): Promise<EnhancedIntentAnalysis> {
-    console.group('🧠 增强意图分析')
+    console.group('🧠 选择性意图分析')
     console.log('📝 用户描述:', description)
     console.log('🎯 选择的字段:', selectedFields.map(f => `${f.fieldLabel}(${f.fieldName})`))
-    
-    const prompt = this.buildEnhancedIntentAnalysisPrompt(description, selectedFields)
+    console.log('🔧 选择的配置类型:', selectedTypes)
+    if (eventTriggerDescription) {
+      console.log('⚡ 事件触发描述:', eventTriggerDescription)
+    }
     
     try {
+      const prompt = this.buildSelectiveIntentAnalysisPrompt(description, selectedFields, selectedTypes, eventTriggerDescription)
       const response = await this.callLLMAPI(prompt)
       const analysis = this.parseEnhancedIntentAnalysis(response)
       
-      console.log('✅ 增强意图分析结果:', analysis)
+      console.log('✅ 选择性意图分析结果:', analysis)
       console.groupEnd()
       
       return analysis
     } catch (error) {
-      console.error('❌ 增强意图分析失败:', error)
+      console.error('❌ 选择性意图分析失败:', error)
       console.groupEnd()
-      throw new Error(`增强意图分析失败: ${error instanceof Error ? error.message : '未知错误'}`)
+      throw new Error(`选择性意图分析失败: ${error instanceof Error ? error.message : '未知错误'}`)
     }
   }
+
+
 
   /**
    * 第一步：分析用户意图（保持向后兼容）
    */
-  static async analyzeIntent(description: string, selectedFields: FieldConfig[]): Promise<IntentAnalysis> {
+  static async analyzeIntent(description: string, selectedFields: FieldConfig[], eventTriggerDescription?: string): Promise<IntentAnalysis> {
     console.group('🧠 步骤1：意图分析')
     console.log('📝 用户描述:', description)
+    if (eventTriggerDescription) {
+      console.log('⚡ 事件触发描述:', eventTriggerDescription)
+    }
     console.log('🎯 选择的字段:', selectedFields.map(f => `${f.fieldLabel}(${f.fieldName})`))
     
-    // 使用增强分析，但只返回事件部分以保持兼容性
+    // 使用选择性分析，但只返回事件部分以保持兼容性
     try {
-      const enhancedAnalysis = await this.analyzeEnhancedIntent(description, selectedFields)
+      const enhancedAnalysis = await this.analyzeSelectiveIntent(
+        description, 
+        selectedFields, 
+        ['event', 'validation', 'componentConfig'],
+        eventTriggerDescription
+      )
       
       // 检查eventAnalysis是否存在
       if (!enhancedAnalysis.eventAnalysis) {
@@ -431,6 +407,7 @@ export class EventGeneratorService {
         condition: enhancedAnalysis.eventAnalysis.condition,
         action: enhancedAnalysis.eventAnalysis.action,
         targetField: enhancedAnalysis.eventAnalysis.targetField,
+        eventBindingField: enhancedAnalysis.eventAnalysis.eventBindingField, // 新增事件绑定字段
         sourceField: enhancedAnalysis.eventAnalysis.sourceField
       }
       
@@ -471,6 +448,7 @@ export class EventGeneratorService {
           condition: enhancedAnalysis.eventAnalysis.condition,
           action: enhancedAnalysis.eventAnalysis.action,
           targetField: enhancedAnalysis.eventAnalysis.targetField,
+          eventBindingField: enhancedAnalysis.eventAnalysis.eventBindingField, // 新增事件绑定字段
           sourceField: enhancedAnalysis.eventAnalysis.sourceField
         }, selectedFields)
       }
@@ -667,28 +645,36 @@ export class EventGeneratorService {
   /**
    * 构建选择性意图分析提示词
    */
-  private static buildSelectiveIntentAnalysisPrompt(description: string, selectedFields: FieldConfig[], selectedTypes: string[]): string {
+  private static buildSelectiveIntentAnalysisPrompt(description: string, selectedFields: FieldConfig[], selectedTypes: string[], eventTriggerDescription?: string): string {
     // 提供完整的 JSON 格式字段信息
     const fieldsInfo = JSON.stringify(selectedFields, null, 2)
 
     const eventTypes = ['blur', 'change']
     
-    // 根据选择的类型调整分析重点
+    // 根据选择的类型构建分析说明
+    let analysisType = ''
     let analysisInstructions = '请仔细分析用户描述，识别以下方面的需求：\n\n'
     let requiredSections = []
     
     if (selectedTypes.includes('event')) {
+      analysisType += '事件逻辑'
       analysisInstructions += '1. **事件逻辑**：字段间的交互、数据联动、自动计算等\n'
+      analysisInstructions += '   - 目标字段：事件作用的对象（被修改的字段）\n'
+      analysisInstructions += '   - 事件绑定字段：触发事件的字段（事件监听器绑定的字段）参考【事件触发描述】\n'
       requiredSections.push('eventAnalysis')
     }
     
     if (selectedTypes.includes('validation')) {
-      analysisInstructions += '2. **校验规则**：数据验证、格式检查、必填项等\n'
+      if (analysisType) analysisType += '、校验规则'
+      else analysisType += '校验规则'
+      analysisInstructions += `${selectedTypes.indexOf('validation') + 1}. **校验规则**：数据验证、格式检查、必填项等\n`
       requiredSections.push('validationAnalysis')
     }
     
     if (selectedTypes.includes('componentConfig')) {
-      analysisInstructions += '3. **组件配置**：UI展示相关的配置，如占位符、清空按钮、过滤等\n'
+      if (analysisType) analysisType += '、组件配置'
+      else analysisType += '组件配置'
+      analysisInstructions += `${selectedTypes.indexOf('componentConfig') + 1}. **组件配置**：UI展示相关的配置，如占位符、清空按钮、过滤等\n`
       requiredSections.push('componentConfigAnalysis')
     }
 
@@ -700,10 +686,12 @@ export class EventGeneratorService {
     "eventType": "事件类型(blur/change)",
     "condition": "触发条件(可选)",
     "action": "执行动作的描述",
-    "targetField": "目标字段名称",
+    "targetField": "目标字段名称(事件作用的目标字段，即被修改的字段)",
+    "eventBindingField": "事件绑定字段名称(触发事件的字段，即事件监听器绑定的字段，可选)",
     "sourceField": "源字段名称(如果有条件判断)",
     "description": "事件功能的简洁描述",
-    "recommendedTargetField": "AI推荐的最佳目标字段"
+    "recommendedTargetField": "AI推荐的最佳目标字段",
+    "recommendedEventBindingField": "AI推荐的最佳事件绑定字段"
   },\n`
     }
     
@@ -737,73 +725,48 @@ export class EventGeneratorService {
   },\n`
     }
     
-    jsonStructure = jsonStructure.replace(/,\n$/, '\n') + '}'
-
-    return `你是一个表单配置专家。请分析用户的需求描述，根据用户选择的配置类型进行针对性分析。
-
-用户描述：${description}
-
-相关字段完整信息：
-${fieldsInfo}
-
-可用事件类型：${eventTypes.join(', ')}
-
-用户选择的配置类型：${selectedTypes.map(type => {
-  const typeMap: { [key: string]: string } = {
-    'event': '事件逻辑',
-    'validation': '校验规则', 
-    'componentConfig': '组件配置'
-  }
-  return typeMap[type] || type
-}).join('、')}
-
-${analysisInstructions}
-
-请以JSON格式返回分析结果：
-${jsonStructure}
-
-注意事项：
-1. 仔细分析用户描述中涉及的所有字段
-2. 为每个配置项推荐最合适的目标字段
-3. 推荐字段必须从可用字段列表中选择
-4. 如果描述中明确指定了字段，优先使用指定的字段
-5. 如果没有明确指定，根据语义分析推荐最合适的字段
-6. 确保推荐的字段与配置的功能相匹配
-7. 只分析用户选择的配置类型，未选择的类型可以省略或设为null
-8. 确保各个部分不重复，各司其职
-9. 校验规则只关注数据验证，不涉及业务逻辑
-10. 组件配置只关注UI展示，不涉及数据处理
-11. ⚠️ 重要限制：事件类型只能使用 blur 或 change，严禁使用 input、focus 等其他事件类型
-12. ⚠️ blur事件：在字段失去焦点时触发，适用于格式验证、数据处理等场景
-13. ⚠️ change事件：在字段值发生变化时触发，适用于联动计算、实时更新等场景
-
-请只返回JSON，不要其他内容。`
-  }
-
-  /**
-   * 构建增强的意图分析提示词
-   */
-  private static buildEnhancedIntentAnalysisPrompt(description: string, selectedFields: FieldConfig[]): string {
-    // 提供完整的 JSON 格式字段信息
-    const fieldsInfo = JSON.stringify(selectedFields, null, 2)
-
-    const eventTypes = ['blur', 'change']
+    // 构建选择说明
+    let selectionNote = ''
+    let configTypeDescription = ''
+    
+    if (selectedTypes.length === 3) {
+      selectionNote = '事件逻辑是必须的，校验和配置是可选的'
+      configTypeDescription = '将其分解为事件逻辑、校验规则和组件配置三个独立的部分'
+    } else {
+      selectionNote = `只分析用户选择的配置类型，未选择的类型可以省略或设为null`
+      const typeNames = selectedTypes.map(type => {
+        const typeMap: { [key: string]: string } = {
+          'event': '事件逻辑',
+          'validation': '校验规则', 
+          'componentConfig': '组件配置'
+        }
+        return typeMap[type] || type
+      })
+      configTypeDescription = `将其分解为${typeNames.join('、')}独立的部分`
+    }
 
     return ENHANCED_INTENT_ANALYSIS_PROMPT_TEMPLATE
+      .replace('{analysisType}', configTypeDescription)
       .replace('{description}', description)
+      .replace('{eventTriggerDescription}', eventTriggerDescription || '用户未指定具体的事件触发条件')
       .replace('{fieldsInfo}', fieldsInfo)
       .replace('{eventTypes}', eventTypes.join(', '))
+      .replace('{analysisInstructions}', analysisInstructions)
+      .replace('{jsonStructure}', jsonStructure)
+      .replace('{selectionNote}', selectionNote)
   }
 
   /**
    * 构建意图分析提示词（保持向后兼容）
-   * @deprecated 使用 buildEnhancedIntentAnalysisPrompt 替代
+   * @deprecated 使用 buildSelectiveIntentAnalysisPrompt 替代
    */
   // @ts-ignore - 忽略未使用警告，保持向后兼容
-  private static buildIntentAnalysisPrompt(description: string, selectedFields: FieldConfig[]): string {
-    // 使用增强版本的提示词构建
-    return this.buildEnhancedIntentAnalysisPrompt(description, selectedFields)
+  private static buildIntentAnalysisPrompt(description: string, selectedFields: FieldConfig[], eventTriggerDescription?: string): string {
+    // 使用选择性分析版本的提示词构建，默认包含所有类型以保持向后兼容
+    return this.buildSelectiveIntentAnalysisPrompt(description, selectedFields, ['event', 'validation', 'componentConfig'], eventTriggerDescription)
   }
+
+
 
   /**
    * 构建配置生成提示词
@@ -816,6 +779,7 @@ ${jsonStructure}
       .replace('{condition}', intentAnalysis.condition || '无')
       .replace('{action}', intentAnalysis.action)
       .replace('{targetField}', intentAnalysis.targetField)
+      .replace('{eventBindingField}', intentAnalysis.eventBindingField || '无') 
       .replace('{sourceField}', intentAnalysis.sourceField || '无')
       .replace('{fieldsInfo}', fieldsInfo)
   }
@@ -975,14 +939,16 @@ ${jsonStructure}
       }
 
       const result: EnhancedIntentAnalysis = {
-        eventAnalysis: hasEvent ? {
+        eventAnalysis: parsed.eventAnalysis ? {
           eventType: parsed.eventAnalysis.eventType,
           condition: parsed.eventAnalysis.condition,
           action: parsed.eventAnalysis.action,
           targetField: parsed.eventAnalysis.targetField,
+          eventBindingField: parsed.eventAnalysis.eventBindingField, // 新增事件绑定字段
           sourceField: parsed.eventAnalysis.sourceField,
           description: parsed.eventAnalysis.description || '事件配置',
-          recommendedTargetField: parsed.eventAnalysis.recommendedTargetField
+          recommendedTargetField: parsed.eventAnalysis.recommendedTargetField,
+          recommendedEventBindingField: parsed.eventAnalysis.recommendedEventBindingField // 新增推荐事件绑定字段
         } : undefined,
         validationAnalysis: parsed.validationAnalysis?.hasValidation ? {
           hasValidation: parsed.validationAnalysis.hasValidation,

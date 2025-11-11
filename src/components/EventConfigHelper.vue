@@ -62,22 +62,6 @@
             </el-select>
             <span class="prompt-text">时候</span>
           </div>
-          <div class="event-prompt-actions">
-            <el-button 
-              size="small" 
-              type="primary" 
-              :disabled="!eventPromptField || !eventPromptType"
-              @click="addEventPromptToDescription"
-            >
-              添加到描述
-            </el-button>
-            <el-button 
-              size="small" 
-              @click="clearEventPrompt"
-            >
-              清空
-            </el-button>
-          </div>
         </div>
         
         <!-- 需求描述部分 -->
@@ -493,42 +477,7 @@ const fillExample = () => {
   description.value = '当产品名称以bt开头时，单价在失去焦点时乘以10'
 }
 
-// 交互式事件提示组件方法
-const addEventPromptToDescription = () => {
-  if (!eventPromptField.value || !eventPromptType.value) {
-    return
-  }
-  
-  const field = props.fields.find(f => f.fieldName === eventPromptField.value)
-  const fieldLabel = field ? field.fieldLabel : eventPromptField.value
-  
-  const eventTypeMap = {
-    'change': '值变化',
-    'blur': '失去焦点',
-    'focus': '获得焦点',
-    'input': '输入时',
-    'click': '点击时',
-    'dblclick': '双击时'
-  }
-  
-  const eventTypeLabel = eventTypeMap[eventPromptType.value as keyof typeof eventTypeMap] || eventPromptType.value
-  const promptText = `当${fieldLabel}的${eventTypeLabel}时候`
-  
-  // 添加到描述中
-  if (description.value.trim()) {
-    description.value += `；${promptText}`
-  } else {
-    description.value = promptText
-  }
-  
-  // 清空选择
-  clearEventPrompt()
-}
-
-const clearEventPrompt = () => {
-  eventPromptField.value = ''
-  eventPromptType.value = ''
-}
+// 交互式事件提示组件方法 - 事件触发条件现在直接传递给服务层
 
 // 获取描述占位符
 const getDescriptionPlaceholder = () => {
@@ -590,11 +539,31 @@ const analyzeIntent = async () => {
       selectedFields.value.includes(field.fieldName)
     )
 
+    // 构建事件触发描述（如果选择了事件配置且指定了触发条件）
+    let eventTriggerDescription: string | undefined
+    if (selectedConfigTypes.value.includes('event') && eventPromptField.value && eventPromptType.value) {
+      const field = props.fields.find(f => f.fieldName === eventPromptField.value)
+      const fieldLabel = field ? field.fieldLabel : eventPromptField.value
+      
+      const eventTypeMap = {
+        'change': '值变化',
+        'blur': '失去焦点',
+        'focus': '获得焦点',
+        'input': '输入时',
+        'click': '点击时',
+        'dblclick': '双击时'
+      }
+      
+      const eventTypeLabel = eventTypeMap[eventPromptType.value as keyof typeof eventTypeMap] || eventPromptType.value
+      eventTriggerDescription = `当${fieldLabel}的${eventTypeLabel}时候`
+    }
+
     // 根据选择的配置类型进行分析
     const analysis = await EventGeneratorService.analyzeSelectiveIntent(
       description.value,
       selectedFieldsInfo,
-      selectedConfigTypes.value
+      selectedConfigTypes.value,
+      eventTriggerDescription
     )
     
     enhancedIntentAnalysis.value = analysis

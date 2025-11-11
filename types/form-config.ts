@@ -47,6 +47,7 @@ export interface EventAction {
 export interface FieldEvent {
   type: 'change' | 'focus' | 'blur' | 'input';
   condition?: string; // 触发条件表达式
+  eventBindingField?: string; // 事件绑定字段：触发事件的字段（事件监听器绑定的字段）
   actions: EventAction[];
   description?: string; // 事件描述，用于可视化展示和管理
 }
@@ -56,7 +57,8 @@ export interface IntentAnalysis {
   eventType: string
   condition?: string
   action: string
-  targetField: string
+  targetField: string // 目标字段：事件作用的目标字段（被修改的字段）
+  eventBindingField?: string // 事件绑定字段：触发事件的字段（事件监听器绑定的字段）
   sourceField?: string
 }
 
@@ -67,10 +69,12 @@ export interface EnhancedIntentAnalysis {
     eventType: string;
     condition?: string;
     action: string;
-    targetField: string;
+    targetField: string; // 目标字段：事件作用的目标字段（被修改的字段）
+    eventBindingField?: string; // 事件绑定字段：触发事件的字段（事件监听器绑定的字段）
     sourceField?: string;
     description: string;
     recommendedTargetField?: string; // AI推荐的目标字段
+    recommendedEventBindingField?: string; // AI推荐的事件绑定字段
   };
   
   // 校验规则分析
