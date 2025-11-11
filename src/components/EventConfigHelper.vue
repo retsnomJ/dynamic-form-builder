@@ -547,11 +547,8 @@ const analyzeIntent = async () => {
       
       const eventTypeMap = {
         'change': '值变化',
-        'blur': '失去焦点',
-        'focus': '获得焦点',
-        'input': '输入时',
-        'click': '点击时',
-        'dblclick': '双击时'
+        'blur': '失去焦点'
+       
       }
       
       const eventTypeLabel = eventTypeMap[eventPromptType.value as keyof typeof eventTypeMap] || eventPromptType.value
@@ -570,7 +567,7 @@ const analyzeIntent = async () => {
     
     // 设置推荐的目标字段
     if (analysis.eventAnalysis && selectedConfigTypes.value.includes('event')) {
-      eventTargetField.value = analysis.eventAnalysis.recommendedTargetField || analysis.eventAnalysis.targetField
+      eventTargetField.value = analysis.eventAnalysis.recommendedEventBindingField || ''
     }
     if (analysis.validationAnalysis && selectedConfigTypes.value.includes('validation')) {
       validationTargetField.value = analysis.validationAnalysis.recommendedTargetField || ''
