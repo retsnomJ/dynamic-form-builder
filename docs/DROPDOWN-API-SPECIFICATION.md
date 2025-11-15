@@ -89,7 +89,7 @@ interface OptionItem {
 {
   id: 'customer-types',
   name: '客户类型选项接口',
-  url: 'http://localhost:3005/api/options/customer-types',
+  url: 'http://192.168.177.81:3005/api/options/customer-types',
   method: 'GET',
   responseMapping: {
     value: 'value',
@@ -114,7 +114,7 @@ interface OptionItem {
 {
   id: 'products-search',
   name: '产品搜索接口',
-  url: 'http://localhost:3005/api/products/search',
+  url: 'http://192.168.177.81:3005/api/products/search',
   method: 'GET',
   params: {
     name: '{searchKeyword}'

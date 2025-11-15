@@ -27,7 +27,7 @@ export const predefinedDataSources: DataSourceOption[] = [
     id: 'products-search',
     name: '产品搜索接口',
     description: '根据名称搜索产品信息',
-    url: 'http://localhost:3005/api/products/search',
+    url: 'http://192.168.177.81:3005/api/products/search',
     method: 'GET',
     params: {
       name: '{searchKeyword}'
@@ -53,7 +53,7 @@ export const predefinedDataSources: DataSourceOption[] = [
     id: 'customer-types',
     name: '客户类型选项接口',
     description: '获取客户类型选项列表',
-    url: 'http://localhost:3005/api/options/customer-types',
+    url: 'http://192.168.177.81:3005/api/options/customer-types',
     method: 'GET',
     params: {
       name: '{searchKeyword}'
@@ -77,7 +77,7 @@ export const predefinedDataSources: DataSourceOption[] = [
     id: 'bt-products-search',
     name: 'BT产品接口',
     description: '根据关键词搜索BT产品信息',
-    url: 'http://localhost:48080/admin-api/basedata/basequery/common/listProductInfo',
+    url: 'http://192.168.177.81:48080/admin-api/basedata/basequery/common/listProductInfo',
     method: 'GET',
     headers: {
       'tenant-id': '1'
@@ -116,7 +116,7 @@ export const predefinedDataSources: DataSourceOption[] = [
     id: 'bt-sales-owner-search',
     name: 'BT销售主体接口',
     description: '根据关键词搜索BT销售主体信息',
-    url: 'http://localhost:48080/admin-api/basedata/basequery/common/listSalesOwnerInfo',
+    url: 'http://192.168.177.81:48080/admin-api/basedata/basequery/common/listSalesOwnerInfo',
     method: 'GET',
     headers: {
       'tenant-id': '1'

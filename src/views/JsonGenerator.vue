@@ -18,7 +18,7 @@
         <!-- 第一行：基本字段信息 -->
         <div class="table-section">
           <h4 class="section-title">基本信息</h4>
-          <el-table :data="fields" border style="width: 100%; margin-bottom: 20px;">
+          <el-table :data="fields" border style="width: 100%" :max-height="basicTableMaxHeight">
             <el-table-column label="字段名称" width="180">
               <template #default="{ row, $index }">
                 <el-input 
@@ -168,7 +168,7 @@
         <!-- 第二行：数据源配置 -->
         <div class="table-section">
           <h4 class="section-title">数据源配置</h4>
-          <el-table :data="fields" border style="width: 100%;">
+          <el-table :data="fields" border style="width: 100%" :max-height="dataTableMaxHeight">
             <el-table-column label="字段名称" width="180">
               <template #default="{ row }">
                 <span class="field-name-display">{{ row.fieldName || '未设置' }}</span>
@@ -365,7 +365,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus/es'
 import { WarningFilled } from '@element-plus/icons-vue'
 import type { FieldConfig, FieldEvent } from '../../types/form-config'
@@ -531,6 +531,14 @@ const isJsonEditMode = ref(false)
 const editableJsonText = ref('')
 const jsonEditError = ref('')
 
+const basicTableMaxHeight = ref(0)
+const dataTableMaxHeight = ref(0)
+const computeTableHeights = () => {
+  const vh = window.innerHeight
+  basicTableMaxHeight.value = Math.floor(vh * 0.38)
+  dataTableMaxHeight.value = Math.floor(vh * 0.38)
+}
+
 // 字典相关状态
 const dictTypes = ref<Array<{name: string, type: string, labels: string}>>([])
 const filteredDictTypes = ref<Array<{name: string, type: string, labels: string}>>([])
@@ -550,6 +558,12 @@ onMounted(() => {
   }
   // 加载字典类型
   loadDictTypes()
+  computeTableHeights()
+  window.addEventListener('resize', computeTableHeights)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', computeTableHeights)
 })
 
 // 加载字典类型
@@ -1173,10 +1187,41 @@ const highlightedJson = computed(() => {
 // 复制JSON
 const copyJson = async () => {
   try {
-    await navigator.clipboard.writeText(formattedJson.value)
-    console.log('JSON已复制到剪贴板')
+    // 尝试使用现代的Clipboard API
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(formattedJson.value)
+      ElMessage.success('JSON已复制到剪贴板')
+      console.log('JSON已复制到剪贴板')
+    } else {
+      // 降级方案：使用document.execCommand
+      const textArea = document.createElement('textarea')
+      textArea.value = formattedJson.value
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      textArea.style.top = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      
+      try {
+        const successful = document.execCommand('copy')
+        if (successful) {
+          ElMessage.success('JSON已复制到剪贴板')
+          console.log('JSON已复制到剪贴板')
+        } else {
+          ElMessage.error('复制失败，请手动选择并复制')
+          console.error('复制失败')
+        }
+      } catch (err) {
+        ElMessage.error('复制失败，请手动选择并复制')
+        console.error('复制失败:', err)
+      } finally {
+        document.body.removeChild(textArea)
+      }
+    }
   } catch (err) {
-    console.error('复制失败')
+    ElMessage.error('复制失败，请手动选择并复制')
+    console.error('复制失败:', err)
   }
 }
 
@@ -1231,6 +1276,9 @@ addField()
 
 .config-panel {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   border: 1px solid #dcdfe6;
   border-radius: 4px;
   overflow: hidden;
@@ -1302,6 +1350,7 @@ addField()
   display: flex;
   gap: 8px;
   justify-content: center;
+}
 .action-buttons .el-button {
   padding: 4px 8px;
   font-size: 12px;
@@ -1309,7 +1358,16 @@ addField()
 
 /* 新增样式：表格分组样式 */
 .table-section {
-  margin-bottom: 24px;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.table-section .section-title {
+  flex: 0 0 auto;
+}
+.table-section :deep(.el-table) {
+  flex: 1 1 auto;
 }
 
 .section-title {
@@ -1431,7 +1489,6 @@ addField()
 .json-bracket {
   color: #24292e;
   font-weight: bold;
-}
 }
 
 /* 响应式设计 */

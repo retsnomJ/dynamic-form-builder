@@ -16,7 +16,7 @@
       },
       "dataSource": {
         "type": "api",
-        "url": "http://localhost:3005/api/products/search",
+        "url": "http://192.168.177.81:3005/api/products/search",
         "method": "GET",
         "params": {
           "name": "{searchKeyword}"

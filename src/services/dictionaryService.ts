@@ -24,7 +24,7 @@ export interface DictDataResponse {
 // 获取字典类型列表
 export async function fetchDictTypes(keyword: string = 'i'): Promise<DictType[]> {
   try {
-    const response = await fetch(`http://localhost:48125/admin-api/basedata/basequery/common/listDictTypeInfo?keyword=${keyword}`, {
+    const response = await fetch(`http://192.168.177.81:48125/admin-api/basedata/basequery/common/listDictTypeInfo?keyword=${keyword}`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -52,7 +52,7 @@ export async function fetchDictTypes(keyword: string = 'i'): Promise<DictType[]>
 // 获取字典数据
 export async function fetchDictData(keyword: string): Promise<DictData[]> {
   try {
-    const response = await fetch(`http://localhost:48125/admin-api/basedata/basequery/common/listDictData?keyword=${keyword}`, {
+    const response = await fetch(`http://192.168.177.81:48125/admin-api/basedata/basequery/common/listDictData?keyword=${keyword}`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -82,7 +82,7 @@ export function generateDictApiCode(dictType: string): string {
   return `// 获取${dictType}字典数据
 async function fetch${dictType.charAt(0).toUpperCase() + dictType.slice(1)}DictData() {
   try {
-    const response = await fetch('http://localhost:48125/admin-api/basedata/basequery/common/listDictData?keyword=${dictType}', {
+    const response = await fetch('http://192.168.177.81:48125/admin-api/basedata/basequery/common/listDictData?keyword=${dictType}', {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -120,7 +120,7 @@ export function generateDictDataSource(dictType: string, dictName: string) {
     id: `dict-${dictType}`,
     name: `${dictName}字典`,
     description: `获取${dictName}的字典数据`,
-    url: 'http://localhost:48125/admin-api/basedata/basequery/common/listDictData',
+    url: 'http://192.168.177.81:48125/admin-api/basedata/basequery/common/listDictData',
     method: 'GET' as const,
     headers: {
       'Accept': 'application/json',

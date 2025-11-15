@@ -16,7 +16,7 @@
       },
       "dataSource": {
         "type": "api",
-        "url": "http://localhost:48080/admin-api/basedata/basequery/common/listProductInfo",
+        "url": "http://192.168.177.81:48080/admin-api/basedata/basequery/common/listProductInfo",
         "method": "GET",
         "headers": {
           "tenant-id": "1"

@@ -13,6 +13,7 @@
           >
             <el-menu-item index="generator">JSON生成器</el-menu-item>
             <el-menu-item index="simulator">接口模拟器</el-menu-item>
+            <el-menu-item index="converter">JSON转换器</el-menu-item>
           </el-menu>
         </div>
       </el-header>
@@ -21,6 +22,7 @@
       <el-main class="app-main">
          <JsonGenerator v-show="activeMenu === 'generator'" />
          <ApiSimulator v-show="activeMenu === 'simulator'" />
+         <JsonConverter v-show="activeMenu === 'converter'" />
       </el-main>
     </el-container>
   </div>
@@ -30,6 +32,7 @@
 import { ref } from 'vue'
 import JsonGenerator from './views/JsonGenerator.vue'
 import ApiSimulator from './views/ApiSimulator.vue'
+import JsonConverter from './views/JsonConverter.vue'
 
 // 当前激活的菜单
 const activeMenu = ref('generator')
