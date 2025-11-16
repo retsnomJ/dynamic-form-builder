@@ -1,10 +1,5 @@
 <template>
   <div class="json-generator">
-    <!-- 页面标题 -->
-    <div class="generator-header">
-      <h2>JSON配置生成器</h2>
-      <p>通过可视化表格配置字段属性，自动生成表单JSON配置</p>
-    </div>
 
     <!-- 主要内容区域 -->
     <div class="generator-content">
@@ -12,8 +7,14 @@
       <div class="config-panel">
         <div class="panel-header">
           <h3>字段配置</h3>
-          <el-button type="primary" @click="addField" icon="Plus">添加字段</el-button>
+          <div class="panel-tools">
+            <span class="columns-label">每行列数</span>
+            <el-input-number v-model="layoutColumns" :min="1" :max="24" :step="1" size="small" />
+            <el-button type="primary" @click="addField" icon="Plus">添加字段</el-button>
+          </div>
         </div>
+
+        
 
         <!-- 第一行：基本字段信息 -->
         <div class="table-section">
@@ -29,15 +30,9 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="字段标签" width="180">
-              <template #default="{ row }">
-                <el-input v-model="row.fieldLabel" placeholder="显示标签" />
-              </template>
-            </el-table-column>
-
             <el-table-column label="字段类型" width="150">
-              <template #default="{ row }">
-                <el-select v-model="row.fieldType" placeholder="选择类型" style="width: 100%">
+              <template #default="{ row, $index }">
+                <el-select v-model="row.fieldType" placeholder="选择类型" style="width: 100%" @change="onFieldTypeChange($index)">
                   <el-option
                     v-for="type in fieldTypes"
                     :key="type.value"
@@ -47,6 +42,88 @@
                 </el-select>
               </template>
             </el-table-column>
+
+            <el-table-column label="渲染模式" width="160">
+              <template #default="{ row, $index }">
+                <el-select
+                  v-model="row.componentMode"
+                  placeholder="选择模式"
+                  style="width: 100%"
+                  @change="onComponentModeChange($index)"
+                >
+                  <el-option
+                    v-for="opt in getModeOptions(row.fieldType)"
+                    :key="opt.value"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </el-select>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="模式参数" width="220">
+              <template #default="{ row, $index }">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <template v-if="row.fieldType === 'text' && row.componentMode === 'textarea'">
+                    <el-input-number
+                      v-model="row.componentConfig.rows"
+                      :min="1"
+                      :max="20"
+                      size="small"
+                      @change="onComponentModeParamChange($index)"
+                    />
+                    <span style="font-size: 12px; color: #909399;">行数</span>
+                  </template>
+                  <template v-else-if="row.fieldType === 'text' && row.componentMode === 'richtext'">
+                    <el-input
+                      v-model="row.componentConfig.richTextCondition"
+                      size="small"
+                      placeholder="如 formData.type==='rich' 或 true"
+                      @change="onComponentModeParamChange($index)"
+                    />
+                  </template>
+                  <template v-else-if="row.fieldType === 'number'">
+                    <div style="display: flex; flex-direction: column; gap: 6px; width: 100%;">
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 12px; color: #909399; width: 56px;">步长</span>
+                        <el-input-number
+                          v-model="row.componentConfig.step"
+                          :min="0.0001"
+                          :max="999999"
+                          :precision="4"
+                          size="small"
+                          @change="onComponentModeParamChange($index)"
+                        />
+                      </div>
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 12px; color: #909399; width: 56px;">精度</span>
+                        <el-input-number
+                          v-model="row.componentConfig.precision"
+                          :min="0"
+                          :max="6"
+                          size="small"
+                          @change="onComponentModeParamChange($index)"
+                        />
+                      </div>
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 12px; color: #909399; width: 64px;">加减按钮</span>
+                        <el-switch v-model="row.componentConfig.controls" size="small" />
+                      </div>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <span class="text-muted">-</span>
+                  </template>
+                </div>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="字段标签" width="180">
+              <template #default="{ row }">
+                <el-input v-model="row.fieldLabel" placeholder="显示标签" />
+              </template>
+            </el-table-column>
+
 
             <el-table-column label="必填" width="80" align="center">
               <template #default="{ row }">
@@ -347,6 +424,41 @@
             </el-button>
           </div>
         </div>
+
+        <!-- 表单预览刷新按钮 -->
+        <div class="form-preview-actions">
+          <el-button type="primary" size="small" @click="refreshFormPreview" :disabled="!canRefresh">
+            刷新预览
+          </el-button>
+          <el-button size="small" @click="openPreviewDialog" :disabled="!canRefresh">
+            弹窗展示
+          </el-button>
+        </div>
+
+        <!-- 表单预览 -->
+        <div class="form-preview" v-if="formConfig">
+          <DynamicForm 
+            :config="formConfig"
+            v-model="formData"
+            @submit="handleFormSubmit"
+          />
+        </div>
+        <div v-else class="no-form-preview">
+          <el-empty description="点击上方刷新预览生成表单" />
+        </div>
+
+        <el-dialog v-model="previewVisible" title="表单预览" width="80%">
+          <div v-if="formConfig">
+            <DynamicForm 
+              :config="formConfig"
+              v-model="formData"
+              @submit="handleFormSubmit"
+            />
+          </div>
+          <div v-else>
+            <el-empty description="请先确保JSON可解析" />
+          </div>
+        </el-dialog>
       </div>
 
     </div>
@@ -372,6 +484,8 @@ import type { FieldConfig, FieldEvent } from '../../types/form-config'
 import { getDataSourceOptions, getDataSourceById } from '../data/data-sources'
 import { fetchDictTypes, generateDictDataSource } from '../services/dictionaryService'
 import EventConfigHelper from '../components/EventConfigHelper.vue'
+import DynamicForm from '../../components/DynamicForm.vue'
+import type { FormConfig, FormData } from '../../types/form-config'
 
 // JSON编辑模式相关函数
 const toggleJsonEditMode = () => {
@@ -406,6 +520,9 @@ const applyJsonEdit = () => {
     const parsed = JSON.parse(editableJsonText.value)
     if (parsed.fields && Array.isArray(parsed.fields)) {
       fields.value = parsed.fields
+      if (parsed.layout && typeof parsed.layout.columns === 'number') {
+        layoutColumns.value = parsed.layout.columns
+      }
       isJsonEditMode.value = false
       ElMessage.success('JSON配置已应用')
     } else {
@@ -433,14 +550,13 @@ interface EditableFieldConfig extends FieldConfig {
   internalFieldId?: string; // 添加内部字段ID字段
   internalFieldProperty?: string; // 添加内部字段属性字段
   events?: any[]; // 添加事件配置字段
+  componentMode?: string;
 }
 
 // 字段类型选项
 const fieldTypes = [
-  { value: 'string', label: '单行文本' },
-  { value: 'textarea', label: '多行文本' },
-  { value: 'integer', label: '整数' },
-  { value: 'float', label: '浮点数' },
+  { value: 'text', label: '文本' },
+  { value: 'number', label: '数字' },
   { value: 'date', label: '日期' },
   { value: 'select', label: '下拉选择' },
   { value: 'radio', label: '单选按钮' },
@@ -520,6 +636,7 @@ const saveToStorage = (data: EditableFieldConfig[]) => {
 
 // 字段配置数据 - 从localStorage加载或使用默认数据
 const fields = ref<EditableFieldConfig[]>(loadFromStorage())
+const layoutColumns = ref<number>(2)
 
 // 事件配置相关
 const eventConfigVisible = ref(false)
@@ -537,6 +654,30 @@ const computeTableHeights = () => {
   const vh = window.innerHeight
   basicTableMaxHeight.value = Math.floor(vh * 0.38)
   dataTableMaxHeight.value = Math.floor(vh * 0.38)
+}
+
+const getModeOptions = (type: string) => {
+  if (type === 'text') {
+    return [
+      { value: 'single', label: '单行输入' },
+      { value: 'textarea', label: '多行文本' },
+      { value: 'richtext', label: '富文本编辑器' }
+    ]
+  }
+  if (type === 'date') {
+    return [
+      { value: 'day', label: '按日' },
+      { value: 'month', label: '按月' },
+      { value: 'range', label: '范围选择' }
+    ]
+  }
+  if (type === 'number') {
+    return [
+      { value: 'integer', label: '整数' },
+      { value: 'float', label: '浮点' }
+    ]
+  }
+  return []
 }
 
 // 字典相关状态
@@ -603,12 +744,13 @@ const addField = () => {
   fields.value.push({
     fieldName: `field${fields.value.length + 1}`,
     fieldLabel: `字段${fields.value.length + 1}`,
-    fieldType: 'string',
+    fieldType: 'text',
     required: false,
     disabled: false,
     placeholder: '',
     defaultValue: '',
     dataSourceType: 'manual', // 新增字段默认选择手动填写
+    componentMode: 'single',
     componentConfig: {}, // 预留组件配置
     events: [], // 预留事件配置
     validation: { // 预留验证配置
@@ -927,6 +1069,63 @@ const onDataSourceTypeChange = (index: number) => {
   field.dictType = undefined // 清空字典类型选择
 }
 
+const onFieldTypeChange = (index: number) => {
+  const field = fields.value[index]
+  if (field.fieldType === 'text') {
+    field.componentMode = 'single'
+    if (!field.componentConfig) field.componentConfig = {}
+    field.componentConfig.useTextarea = false
+    field.componentConfig.richTextCondition = undefined
+  } else if (field.fieldType === 'date') {
+    if (!field.componentConfig) field.componentConfig = {}
+    field.componentMode = 'day'
+    field.componentConfig.dateVariant = 'day'
+  } else if (field.fieldType === 'number') {
+    if (!field.componentConfig) field.componentConfig = {}
+    field.componentMode = 'integer'
+    field.componentConfig.precision = 0
+    field.componentConfig.step = 1
+    field.componentConfig.controls = true
+  } else {
+    field.componentMode = undefined
+  }
+}
+
+const onComponentModeChange = (index: number) => {
+  const field = fields.value[index]
+  if (!field.componentConfig) field.componentConfig = {}
+  if (field.fieldType === 'text') {
+    if (field.componentMode === 'single') {
+      field.componentConfig.useTextarea = false
+      field.componentConfig.rows = undefined
+      field.componentConfig.richTextCondition = undefined
+    } else if (field.componentMode === 'textarea') {
+      field.componentConfig.useTextarea = true
+      if (!field.componentConfig.rows) field.componentConfig.rows = 4
+      field.componentConfig.richTextCondition = undefined
+    } else if (field.componentMode === 'richtext') {
+      field.componentConfig.useTextarea = false
+      if (!field.componentConfig.richTextCondition) field.componentConfig.richTextCondition = 'true'
+    }
+  }
+  if (field.fieldType === 'date') {
+    field.componentConfig.dateVariant = field.componentMode
+  }
+  if (field.fieldType === 'number') {
+    if (field.componentMode === 'integer') {
+      field.componentConfig.precision = 0
+      field.componentConfig.step = 1
+    } else if (field.componentMode === 'float') {
+      if (typeof field.componentConfig.precision !== 'number') field.componentConfig.precision = 2
+      if (typeof field.componentConfig.step !== 'number') field.componentConfig.step = 0.1
+    }
+    if (typeof field.componentConfig.controls !== 'boolean') field.componentConfig.controls = true
+  }
+}
+
+const onComponentModeParamChange = (_index: number) => {
+}
+
 // 获取可用的内部字段
 const getAvailableInternalFields = (currentIndex: number) => {
   return fields.value
@@ -1127,6 +1326,9 @@ const formattedJson = computed(() => {
   const config = {
     formName: 'generatedForm',
     formTitle: '生成的表单',
+    layout: {
+      columns: layoutColumns.value
+    },
     fields: fields.value.map(field => {
       const result: any = {
         fieldName: field.fieldName,
@@ -1243,6 +1445,59 @@ const downloadJson = () => {
 
 // 初始化一个示例字段
 addField()
+
+// 表单预览相关
+const formConfig = ref<FormConfig | null>(null)
+const formData = ref<FormData>({})
+const canRefresh = computed(() => {
+  // 编辑模式下需要可解析的文本，否则使用生成的formattedJson
+  if (isJsonEditMode.value) {
+    try {
+      JSON.parse(editableJsonText.value)
+      return true
+    } catch {
+      return false
+    }
+  }
+  return !!formattedJson.value
+})
+
+const refreshFormPreview = () => {
+  try {
+    const jsonText = isJsonEditMode.value ? editableJsonText.value : formattedJson.value
+    const parsed = JSON.parse(jsonText)
+    if (!parsed.fields || !Array.isArray(parsed.fields)) {
+      throw new Error('JSON 配置必须包含 fields 数组')
+    }
+    formConfig.value = parsed as FormConfig
+    formData.value = {}
+    ElMessage.success('表单预览已刷新')
+  } catch (error: any) {
+    formConfig.value = null
+    ElMessage.error(error?.message || 'JSON 解析失败')
+  }
+}
+
+const handleFormSubmit = (data: FormData) => {
+  console.log('表单提交:', data)
+  formData.value = { ...data }
+}
+
+const previewVisible = ref(false)
+const openPreviewDialog = () => {
+  try {
+    const jsonText = isJsonEditMode.value ? editableJsonText.value : formattedJson.value
+    const parsed = JSON.parse(jsonText)
+    if (!parsed.fields || !Array.isArray(parsed.fields)) {
+      throw new Error('JSON 配置必须包含 fields 数组')
+    }
+    formConfig.value = parsed as FormConfig
+    formData.value = {}
+    previewVisible.value = true
+  } catch (error: any) {
+    ElMessage.error(error?.message || 'JSON 解析失败')
+  }
+}
 </script>
 
 <style scoped>
@@ -1252,26 +1507,10 @@ addField()
   min-height: 100vh;
 }
 
-.generator-header {
-  margin-bottom: 30px;
-  text-align: center;
-}
-
-.generator-header h2 {
-  margin: 0 0 10px 0;
-  color: #303133;
-}
-
-.generator-header p {
-  margin: 0;
-  color: #909399;
-  font-size: 14px;
-}
-
 .generator-content {
   display: flex;
   gap: 20px;
-  height: calc(100vh - 200px);
+  height: calc(100vh - 80px);
 }
 
 .config-panel {
@@ -1306,6 +1545,17 @@ addField()
   margin: 0;
   font-size: 16px;
   color: #303133;
+}
+
+.panel-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.columns-label {
+  font-size: 12px;
+  color: #606266;
 }
 
 .preview-actions {
@@ -1452,6 +1702,26 @@ addField()
   padding: 16px;
   max-height: 500px;
   overflow-y: auto;
+}
+
+.form-preview-actions {
+  padding: 12px 16px;
+  border-top: 1px solid #dcdfe6;
+  background: #fff;
+}
+
+.form-preview {
+  border-top: 1px solid #dcdfe6;
+  background: #fafafa;
+  min-height: 300px;
+}
+
+.no-form-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  border-top: 1px dashed #dcdfe6;
 }
 
 .json-content {

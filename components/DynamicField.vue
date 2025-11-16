@@ -4,28 +4,38 @@
     :prop="fieldConfig.fieldName"
     :required="fieldConfig.required"
   >
-    <!-- 字符串输入框 -->
-    <el-input
-      v-if="fieldConfig.fieldType === 'string'"
+    <RichTextEditor
+      v-if="(fieldConfig.fieldType === 'string' || fieldConfig.fieldType === 'text') && useRichText"
       :model-value="modelValue"
       :placeholder="getPlaceholder()"
       :disabled="isDisabled"
-      :clearable="componentConfig.clearable"
-      @input="handleInput"
+      :component-config="componentConfig"
+      @update:model-value="handleInput"
       @change="handleChange"
       @focus="handleFocus"
       @blur="handleBlur"
     />
 
-    <!-- 多行文本框 -->
-    <el-input
-      v-else-if="fieldConfig.fieldType === 'textarea'"
+    <StringInput
+      v-else-if="(fieldConfig.fieldType === 'string' || fieldConfig.fieldType === 'text') && !useTextarea"
       :model-value="modelValue"
-      type="textarea"
+      :placeholder="getPlaceholder()"
+      :disabled="isDisabled"
+      :component-config="componentConfig"
+      @update:model-value="handleInput"
+      @change="handleChange"
+      @focus="handleFocus"
+      @blur="handleBlur"
+    />
+
+    <TextareaInput
+      v-else-if="fieldConfig.fieldType === 'textarea' || ((fieldConfig.fieldType === 'string' || fieldConfig.fieldType === 'text') && useTextarea)"
+      :model-value="modelValue"
       :placeholder="getPlaceholder()"
       :disabled="isDisabled"
       :rows="componentConfig.rows || 3"
-      @input="handleInput"
+      :component-config="componentConfig"
+      @update:model-value="handleInput"
       @change="handleChange"
       @focus="handleFocus"
       @blur="handleBlur"
@@ -33,13 +43,15 @@
 
     <!-- 数字输入框 -->
     <el-input-number
-      v-else-if="fieldConfig.fieldType === 'integer' || fieldConfig.fieldType === 'float'"
+      v-else-if="fieldConfig.fieldType === 'integer' || fieldConfig.fieldType === 'float' || fieldConfig.fieldType === 'number'"
       :model-value="modelValue"
       :placeholder="getPlaceholder()"
       :disabled="isDisabled"
       :min="componentConfig.min"
       :max="componentConfig.max"
-      :precision="fieldConfig.fieldType === 'float' ? (componentConfig.precision || 2) : 0"
+      :precision="fieldConfig.fieldType === 'float' ? (componentConfig.precision || 2) : (fieldConfig.fieldType === 'number' ? (componentConfig.precision || 0) : 0)"
+      :step="componentConfig.step || 1"
+      :controls="componentConfig.controls !== false"
       class="!w-full"
       @update:model-value="handleNumberChange"
       @focus="handleFocus"
@@ -47,15 +59,42 @@
     />
 
     <!-- 日期选择器 -->
-    <el-date-picker
-      v-else-if="fieldConfig.fieldType === 'date'"
+    <DatePickerRange
+      v-else-if="fieldConfig.fieldType === 'date' && dateVariant === 'range'"
       :model-value="modelValue"
-      type="date"
       :placeholder="getPlaceholder()"
       :disabled="isDisabled"
       :format="componentConfig.format || 'YYYY-MM-DD'"
-      value-format="x"
-      class="!w-full"
+      :value-format="componentConfig.valueFormat || 'x'"
+      :component-config="componentConfig"
+      @update:model-value="handleInput"
+      @change="handleChange"
+      @focus="handleFocus"
+      @blur="handleBlur"
+    />
+
+    <DatePickerMonth
+      v-else-if="fieldConfig.fieldType === 'date' && dateVariant === 'month'"
+      :model-value="modelValue"
+      :placeholder="getPlaceholder()"
+      :disabled="isDisabled"
+      :format="componentConfig.format || 'YYYY-MM'"
+      :value-format="componentConfig.valueFormat || 'YYYY-MM'"
+      :component-config="componentConfig"
+      @update:model-value="handleInput"
+      @change="handleChange"
+      @focus="handleFocus"
+      @blur="handleBlur"
+    />
+
+    <DatePickerDay
+      v-else-if="fieldConfig.fieldType === 'date'"
+      :model-value="modelValue"
+      :placeholder="getPlaceholder()"
+      :disabled="isDisabled"
+      :format="componentConfig.format || 'YYYY-MM-DD'"
+      :value-format="componentConfig.valueFormat || 'x'"
+      :component-config="componentConfig"
       @update:model-value="handleInput"
       @change="handleChange"
       @focus="handleFocus"
@@ -133,10 +172,17 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted } from 'vue'
 import type { FieldConfig, OptionItem } from '../types/form-config'
+import StringInput from './fields/StringInput.vue'
+import TextareaInput from './fields/TextareaInput.vue'
+import RichTextEditor from './fields/RichTextEditor.vue'
+import DatePickerDay from './fields/DatePickerDay.vue'
+import DatePickerMonth from './fields/DatePickerMonth.vue'
+import DatePickerRange from './fields/DatePickerRange.vue'
 
 interface Props {
   fieldConfig: FieldConfig
   modelValue: any
+  formContext?: Record<string, any>
 }
 
 interface Emits {
@@ -174,9 +220,11 @@ const getPlaceholder = () => {
   
   const typeMap = {
     string: '请输入',
+    text: '请输入',
     textarea: '请输入',
     integer: '请输入',
     float: '请输入',
+    number: '请输入',
     date: '请选择',
     select: '请选择',
     radio: '请选择',
@@ -385,4 +433,23 @@ watch(() => props.fieldConfig.dataSource, () => {
 onMounted(() => {
   loadOptions()
 })
+
+const useTextarea = computed(() => componentConfig.value.useTextarea === true)
+
+const evaluateCondition = (expr?: string): boolean => {
+  if (!expr) return false
+  try {
+    const fn = new Function('formData', `return ${expr}`)
+    return Boolean(fn(props.formContext || {}))
+  } catch (e) {
+    return false
+  }
+}
+
+const useRichText = computed(() => {
+  const cond = componentConfig.value.richTextCondition
+  return evaluateCondition(cond)
+})
+
+const dateVariant = computed(() => componentConfig.value.dateVariant || 'day')
 </script>

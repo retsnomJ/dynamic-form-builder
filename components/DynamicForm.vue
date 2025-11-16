@@ -12,12 +12,13 @@
       <el-col
         v-for="field in visibleFields"
         :key="field.fieldName"
-        :span="field.layout?.span || 12"
+        :span="field.layout?.span ?? defaultSpan"
         :offset="field.layout?.offset || 0"
       >
         <DynamicField
           :field-config="field"
           v-model="formData[field.fieldName]"
+          :form-context="formData"
           @field-change="handleFieldChange"
           @field-focus="handleFieldFocus"
           @field-blur="handleFieldBlur"
@@ -66,6 +67,12 @@ const formRules = reactive<Record<string, any>>({})
 // 可见字段
 const visibleFields = computed(() => {
   return props.config.fields.filter(field => field.visible !== false)
+})
+
+const defaultSpan = computed(() => {
+  const cols = props.config.layout?.columns || 2
+  const span = Math.floor(24 / cols)
+  return span
 })
 
 // 用于防止循环更新的标志

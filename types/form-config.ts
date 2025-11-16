@@ -103,7 +103,7 @@ export interface EnhancedIntentAnalysis {
 export interface FieldConfig {
   // 基础字段信息
   fieldName: string;
-  fieldType: 'string' | 'integer' | 'float' | 'date' | 'select' | 'radio' | 'checkbox' | 'textarea';
+  fieldType: 'string' | 'integer' | 'float' | 'date' | 'select' | 'radio' | 'checkbox' | 'textarea' | 'text' | 'number';
   fieldLabel: string;
   
   // 控制属性
@@ -160,6 +160,7 @@ export interface FormConfig {
     labelWidth?: string | number;
     labelPosition?: 'left' | 'right' | 'top';
     size?: 'large' | 'default' | 'small';
+    columns?: number;
   };
   validation?: {
     validateOnRuleChange?: boolean;
