@@ -96,7 +96,7 @@ const fetchFromApi = async () => {
       return
     }
     fetching.value = true
-    const url = `http://localhost:48125/admin-api/basedata/basequery/common/listSystemPageFieldConfig?id=${encodeURIComponent(fetchId.value)}&pageCode=${encodeURIComponent(fetchPageCode.value)}`
+    const url = `http://192.168.177.81:48125/admin-api/basedata/basequery/common/listSystemPageFieldConfig?id=${encodeURIComponent(fetchId.value)}&pageCode=${encodeURIComponent(fetchPageCode.value)}`
     const resp = await fetch(url, { headers: { 'tenant-id': '1' } })
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     const json = await resp.json()
@@ -136,12 +136,12 @@ type InputRow = {
 const toUiType = (t?: string): FieldConfig['fieldType'] => {
   const s = (t || '').toLowerCase()
   if (s === 'select' || s === 'radio' || s === 'checkbox' || s === 'textarea') return s as any
-  if (s.includes('int')) return 'integer'
-  if (s.includes('decimal') || s.includes('numeric') || s.includes('float') || s.includes('double')) return 'float'
+  if (s.includes('int')) return 'number'
+  if (s.includes('decimal') || s.includes('numeric') || s.includes('float') || s.includes('double')) return 'number'
   if (s.includes('date') || s.includes('time') || s.includes('timestamp')) return 'date'
-  if (s.includes('text')) return 'textarea'
-  if (s.includes('char') || s.includes('string') || s.includes('varchar')) return 'string'
-  return 'string'
+  if (s.includes('char') || s.includes('string') || s.includes('varchar') || s === 'string') return 'text'
+  if (s.includes('text')) return 'text'
+  return 'text'
 }
 
 const convert = () => {
@@ -154,7 +154,8 @@ const convert = () => {
     const fields: FieldConfig[] = parsed.map((row: InputRow) => {
       const fieldName = row.fieldName || ''
       const fieldLabel = row.fieldLabel || fieldName || '未命名字段'
-      const fieldType = toUiType(row.fieldType)
+      const srcType = (row.fieldType || '').toLowerCase()
+      const fieldType = toUiType(srcType)
       const required = !!row.required
       const visible = row.visible !== undefined ? !!row.visible : true
       const editable = row.editable !== undefined ? !!row.editable : true
@@ -172,9 +173,21 @@ const convert = () => {
         events: [],
         validation: { rules: [] }
       }
+      if (fieldType === 'number') {
+        if (srcType.includes('int')) {
+          fc.componentConfig = { precision: 0, step: 1, controls: true }
+        } else {
+          fc.componentConfig = { precision: 2, step: 0.1, controls: true }
+        }
+      }
       return fc
     })
-    const formConfig = { fields }
+    const formConfig = {
+      formName: 'generatedForm',
+      formTitle: '生成的表单',
+      layout: { columns: 2 },
+      fields
+    }
     outputText.value = JSON.stringify(formConfig, null, 2)
     errorText.value = ''
     ElMessage.success('转换完成')
